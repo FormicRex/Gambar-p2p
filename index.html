@@ -29,7 +29,16 @@
   .bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
   .timer{font-variant-numeric:tabular-nums;font-size:28px;font-weight:800}
   .timer.low{color:#c0392b}
-  canvas{width:100%;background:#fff;border:2px solid var(--ink);border-radius:10px;touch-action:none;display:block}
+  #cvWrap{position:relative;width:100%;aspect-ratio:4/3;background:#fff;border:2px solid var(--ink);border-radius:10px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+  #cv{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:0 0;touch-action:none;display:block}
+  #wheelPanel{display:none;margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+  #wheelPanel.open{display:block}
+  #wheelCv{width:200px;height:200px;touch-action:none;border-radius:50%;cursor:crosshair}
+  #themeOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:50;opacity:0;transition:opacity .35s}
+  #themeOverlay.show{opacity:1}
+  #themeOverlay .box{background:rgba(20,20,20,.85);color:#fff;border-radius:22px;padding:26px 36px;text-align:center;max-width:88vw}
+  #themeOverlay .lbl{font-size:14px;letter-spacing:4px;opacity:.8}
+  #themeOverlay .big{font-size:48px;font-weight:800;margin-top:6px;word-break:break-word}
   .tools{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
   .sw{width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px var(--line);padding:0}
   .sw.sel{box-shadow:0 0 0 3px var(--ink)}
@@ -81,14 +90,31 @@
     <div><div class="muted" style="font-size:12px">TEMA</div><p class="theme" id="themeText"></p></div>
     <div class="timer" id="timer">5:00</div>
   </div>
-  <canvas id="cv" width="640" height="480"></canvas>
+  <div id="cvWrap"><canvas id="cv" width="640" height="480"></canvas></div>
   <div class="tools" id="colors"></div>
+  <div id="wheelPanel">
+    <canvas id="wheelCv" width="200" height="200"></canvas>
+    <div style="margin-top:8px"><label class="muted" style="font-size:13px">Gelap ◀ ▶ Terang <input type="range" id="bright" min="0" max="100" value="100" style="width:55%;padding:0;margin:0 0 0 6px;vertical-align:middle"></label></div>
+    <div class="muted" style="font-size:13px;margin-top:6px">Warna terpilih: <span id="curSw" style="display:inline-block;width:22px;height:22px;border-radius:50%;vertical-align:middle;border:1px solid var(--line);background:#000"></span></div>
+  </div>
   <div class="tools">
     <button class="tb sel" id="penBtn">✏️ Pensil</button>
+    <button class="tb" id="fillBtn">🪣 Ember cat</button>
     <button class="tb" id="eraseBtn">🧽 Hapus</button>
+    <button class="tb" id="panBtn">✋ Geser</button>
+    <button class="tb" id="wheelBtn">🎨 Roda warna</button>
+  </div>
+  <div class="tools">
+    <button class="tb" id="zoomOut">➖</button>
+    <span class="muted" id="zoomLbl" style="min-width:46px;text-align:center">100%</span>
+    <button class="tb" id="zoomIn">➕</button>
+    <button class="tb" id="zoomReset">🔍 Reset</button>
     <label class="muted" style="font-size:13px">Tebal <input type="range" id="size" min="2" max="40" value="6" style="width:90px;padding:0;margin:0 0 0 4px;vertical-align:middle"></label>
+  </div>
+  <div class="tools">
     <button class="tb" id="undoBtn">↩️ Undo</button>
     <button class="tb" id="clearBtn">🗑️ Bersihkan</button>
+    <span class="muted" style="font-size:12px">Zoom: cubit 2 jari atau tombol ➕➖</span>
   </div>
   <div id="drawActions" style="margin-top:10px">
     <button class="btn" id="submitBtn">✅ Selesai — Kirim Gambar</button>
@@ -120,6 +146,8 @@
   <button class="btn" id="againBtn" style="display:none">Main Lagi</button>
   <p class="muted center" id="againWait"></p>
 </div>
+
+<div id="themeOverlay"><div class="box"><div class="lbl">TEMA</div><div class="big" id="themeBig"></div></div></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -398,15 +426,27 @@ $('startBtn').onclick = () => { $('lobbyErr').textContent = ''; act({ t: 'start'
 const cv = $('cv'), ctx = cv.getContext('2d');
 const COLORS = ['#000000', '#ffffff', '#e74c3c', '#ff9f1c', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db', '#6c5ce7', '#e84393', '#8b5a2b', '#95a5a6'];
 let color = '#000000', tool = 'pen', drawing = false, last = null, undoStack = [], myReady = false;
+const swatches = [];
+// pilih warna (dari palet atau roda warna); ember cat tetap aktif, hapus/geser kembali ke pensil
+function setColor(c, fromWheel) {
+  color = c;
+  if (tool === 'erase' || tool === 'pan') tool = 'pen';
+  sync();
+  swatches.forEach(s => s.el.classList.toggle('sel', !fromWheel && s.c === c));
+  $('curSw').style.background = c;
+}
 COLORS.forEach((c, i) => {
   const b = document.createElement('button');
   b.className = 'sw' + (i === 0 ? ' sel' : ''); b.style.background = c;
-  b.onclick = () => { color = c; tool = 'pen'; sync(); document.querySelectorAll('.sw').forEach(x => x.classList.toggle('sel', x === b)); };
+  b.onclick = () => setColor(c, false);
+  swatches.push({ el: b, c });
   $('colors').appendChild(b);
 });
-function sync() { $('penBtn').classList.toggle('sel', tool === 'pen'); $('eraseBtn').classList.toggle('sel', tool === 'erase'); }
+function sync() { ['pen', 'fill', 'erase', 'pan'].forEach(t => $(t + 'Btn').classList.toggle('sel', tool === t)); }
 $('penBtn').onclick = () => { tool = 'pen'; sync(); };
+$('fillBtn').onclick = () => { tool = 'fill'; sync(); };
 $('eraseBtn').onclick = () => { tool = 'erase'; sync(); };
+$('panBtn').onclick = () => { tool = 'pan'; sync(); };
 function blank() { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); }
 function snapshot() { undoStack.push(ctx.getImageData(0, 0, cv.width, cv.height)); if (undoStack.length > 15) undoStack.shift(); }
 $('undoBtn').onclick = () => { if (!locked() && undoStack.length) ctx.putImageData(undoStack.pop(), 0, 0); };
@@ -419,18 +459,170 @@ function stroke(a, b) {
 }
 const timeUp = () => !S || S.phase !== 'drawing' || now() >= S.endsAt;
 const locked = () => timeUp() || myReady;
-cv.addEventListener('pointerdown', e => {
+
+// ---------- Zoom & geser ----------
+const wrap = $('cvWrap');
+let zoom = 1, tx = 0, ty = 0;
+function applyView() {
+  const W = wrap.clientWidth, Hh = wrap.clientHeight;
+  zoom = Math.min(6, Math.max(1, zoom));
+  tx = Math.min(0, Math.max(W - W * zoom, tx));
+  ty = Math.min(0, Math.max(Hh - Hh * zoom, ty));
+  cv.style.transform = `translate(${tx}px,${ty}px) scale(${zoom})`;
+  $('zoomLbl').textContent = Math.round(zoom * 100) + '%';
+}
+function zoomAt(f, cx, cy) {
+  const nz = Math.min(6, Math.max(1, zoom * f)), k = nz / zoom;
+  tx = cx - (cx - tx) * k; ty = cy - (cy - ty) * k; zoom = nz; applyView();
+}
+function resetView() { zoom = 1; tx = ty = 0; applyView(); }
+$('zoomIn').onclick = () => zoomAt(1.4, wrap.clientWidth / 2, wrap.clientHeight / 2);
+$('zoomOut').onclick = () => zoomAt(1 / 1.4, wrap.clientWidth / 2, wrap.clientHeight / 2);
+$('zoomReset').onclick = resetView;
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = wrap.getBoundingClientRect();
+  zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+window.addEventListener('resize', applyView);
+
+// ---------- Ember cat (flood fill) ----------
+function floodFill(sx, sy, hex) {
+  const W = cv.width, Hh = cv.height;
+  sx = Math.floor(sx); sy = Math.floor(sy);
+  if (sx < 0 || sy < 0 || sx >= W || sy >= Hh) return;
+  const img = ctx.getImageData(0, 0, W, Hh), d = img.data;
+  const [fr, fg, fb] = hexToRgb(hex);
+  const i0 = (sy * W + sx) * 4, tr = d[i0], tg = d[i0 + 1], tb = d[i0 + 2];
+  if (Math.abs(tr - fr) + Math.abs(tg - fg) + Math.abs(tb - fb) < 12) return; // sudah warna yang sama
+  const TOL = 90, seen = new Uint8Array(W * Hh);
+  const ok = (x, y) => {
+    const p = y * W + x; if (seen[p]) return false;
+    const i = p * 4;
+    return Math.abs(d[i] - tr) + Math.abs(d[i + 1] - tg) + Math.abs(d[i + 2] - tb) <= TOL;
+  };
+  const stack = [sx, sy];
+  while (stack.length) {
+    const y = stack.pop(), x0 = stack.pop();
+    let xl = x0;
+    while (xl > 0 && ok(xl - 1, y)) xl--;
+    let up = false, down = false;
+    for (let x = xl; x < W && ok(x, y); x++) {
+      const p = y * W + x, i = p * 4;
+      seen[p] = 1; d[i] = fr; d[i + 1] = fg; d[i + 2] = fb; d[i + 3] = 255;
+      if (y > 0) { const o = ok(x, y - 1); if (o && !up) { stack.push(x, y - 1); up = true; } else if (!o) up = false; }
+      if (y < Hh - 1) { const o = ok(x, y + 1); if (o && !down) { stack.push(x, y + 1); down = true; } else if (!o) down = false; }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// ---------- Sentuhan: 1 jari = gambar/ember/geser, 2 jari = zoom + geser ----------
+const ptrs = new Map();
+let pinch = null, panning = false, panLast = null, fillCand = null;
+wrap.addEventListener('pointerdown', e => {
+  wrap.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size >= 2) {
+    if (drawing) { drawing = false; if (undoStack.length) ctx.putImageData(undoStack.pop(), 0, 0); } // batalkan coretan tak sengaja
+    fillCand = null; panning = false;
+    const [a, b] = [...ptrs.values()];
+    pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+    return;
+  }
+  if (tool === 'pan') { panning = true; panLast = { x: e.clientX, y: e.clientY }; return; }
   if (locked()) return;
-  cv.setPointerCapture(e.pointerId); snapshot(); drawing = true; last = pos(e);
+  if (tool === 'fill') { fillCand = { id: e.pointerId, x: e.clientX, y: e.clientY, p: pos(e) }; return; }
+  snapshot(); drawing = true; last = pos(e);
   stroke(last, { x: last.x + .01, y: last.y });
 });
-cv.addEventListener('pointermove', e => { if (!drawing) return; const p = pos(e); stroke(last, p); last = p; });
-['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { drawing = false; }));
+wrap.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size >= 2 && pinch) {
+    const [a, b] = [...ptrs.values()];
+    const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const r = wrap.getBoundingClientRect();
+    tx += mx - pinch.mx; ty += my - pinch.my;
+    zoomAt(dist / pinch.dist, mx - r.left, my - r.top);
+    pinch = { dist, mx, my };
+    return;
+  }
+  if (panning) { tx += e.clientX - panLast.x; ty += e.clientY - panLast.y; panLast = { x: e.clientX, y: e.clientY }; applyView(); return; }
+  if (fillCand && Math.hypot(e.clientX - fillCand.x, e.clientY - fillCand.y) > 10) fillCand = null;
+  if (!drawing) return;
+  const p = pos(e); stroke(last, p); last = p;
+});
+function endPtr(e) {
+  const cand = fillCand;
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinch = null;
+  drawing = false; panning = false; fillCand = null;
+  // ember cat dijalankan saat jari diangkat (ketukan), supaya tidak terisi tak sengaja saat cubit/geser
+  if (e.type === 'pointerup' && cand && cand.id === e.pointerId && ptrs.size === 0 && !locked()) {
+    snapshot(); floodFill(cand.p.x, cand.p.y, color);
+  }
+}
+['pointerup', 'pointercancel'].forEach(t => wrap.addEventListener(t, endPtr));
 
+// ---------- Roda warna ----------
+const wheel = $('wheelCv'), wctx = wheel.getContext('2d');
+let wHue = 0, wSat = 0, wVal = 1, wheelInit = false, wheelDrag = false;
+function hsv2rgb(h, s, v) {
+  const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+  let r, g, b;
+  if (h < 60) [r, g, b] = [c, x, 0]; else if (h < 120) [r, g, b] = [x, c, 0]; else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c]; else if (h < 300) [r, g, b] = [x, 0, c]; else [r, g, b] = [c, 0, x];
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+const toHex = rgb => '#' + rgb.map(n => n.toString(16).padStart(2, '0')).join('');
+const hexToRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+function drawWheel() {
+  const W = wheel.width, R = W / 2, img = wctx.createImageData(W, W), d = img.data;
+  for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
+    const dx = x + .5 - R, dy = y + .5 - R, r = Math.hypot(dx, dy), i = (y * W + x) * 4;
+    if (r > R) continue;
+    const hue = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+    const [cr, cg, cb] = hsv2rgb(hue, Math.min(r / R, 1), wVal);
+    d[i] = cr; d[i + 1] = cg; d[i + 2] = cb; d[i + 3] = 255;
+  }
+  wctx.putImageData(img, 0, 0);
+  const a = wHue * Math.PI / 180, mx = R + Math.cos(a) * wSat * (R - 2), my = R + Math.sin(a) * wSat * (R - 2);
+  wctx.beginPath(); wctx.arc(mx, my, 10, 0, Math.PI * 2); wctx.lineWidth = 4; wctx.strokeStyle = '#000'; wctx.stroke();
+  wctx.beginPath(); wctx.arc(mx, my, 10, 0, Math.PI * 2); wctx.lineWidth = 2; wctx.strokeStyle = '#fff'; wctx.stroke();
+}
+function applyWheel() { drawWheel(); setColor(toHex(hsv2rgb(wHue, wSat, wVal)), true); }
+function pickWheel(e) {
+  const r = wheel.getBoundingClientRect(), R = r.width / 2;
+  const dx = e.clientX - r.left - R, dy = e.clientY - r.top - R;
+  wHue = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+  wSat = Math.min(Math.hypot(dx, dy) / R, 1);
+  applyWheel();
+}
+wheel.addEventListener('pointerdown', e => { wheelDrag = true; wheel.setPointerCapture(e.pointerId); pickWheel(e); });
+wheel.addEventListener('pointermove', e => { if (wheelDrag) pickWheel(e); });
+['pointerup', 'pointercancel'].forEach(t => wheel.addEventListener(t, () => { wheelDrag = false; }));
+$('bright').oninput = e => { wVal = +e.target.value / 100; applyWheel(); };
+$('wheelBtn').onclick = () => {
+  $('wheelPanel').classList.toggle('open');
+  if (!wheelInit) { wheelInit = true; drawWheel(); }
+};
+
+// tulisan tema di tengah layar selama 3 detik saat game dimulai
+let overlayTimer = null;
+function showThemeOverlay(text) {
+  $('themeBig').textContent = text;
+  const o = $('themeOverlay'); o.classList.add('show');
+  clearTimeout(overlayTimer);
+  overlayTimer = setTimeout(() => o.classList.remove('show'), 3000);
+}
 function renderDraw() {
   showScreen('draw');
   $('themeText').textContent = S.theme;
-  if (curRound !== S.round) { curRound = S.round; submitted = false; myReady = false; curShow = null; undoStack = []; blank(); }
+  if (curRound !== S.round) {
+    curRound = S.round; submitted = false; myReady = false; curShow = null; undoStack = []; blank();
+    resetView(); showThemeOverlay(S.theme);
+  }
   $('drawActions').style.display = S.phase === 'drawing' ? '' : 'none';
   updateReadyUI();
   $('drawNote').textContent = S.phase === 'collecting' ? 'Waktu habis! Mengumpulkan gambar…' : '';
