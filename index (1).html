@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Gambar Bareng (P2P)</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+  :root{--bg:#f6f3ee;--card:#fff;--ink:#222;--muted:#777;--accent:#ff6b35;--line:#e5e0d8}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+  .screen{display:none;max-width:760px;margin:0 auto;padding:16px}
+  .screen.active{display:block}
+  h1{margin:8px 0 4px;font-size:28px}
+  h2{margin:0 0 8px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+  input[type=text],input:not([type]){width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px;margin:6px 0}
+  button{font:inherit;cursor:pointer}
+  .btn{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:600;font-size:16px;width:100%;margin-top:6px}
+  .btn:disabled{opacity:.5}
+  .muted{color:var(--muted)}
+  .err{color:#c0392b;min-height:20px;font-size:14px}
+  .code{font-size:34px;font-weight:800;letter-spacing:6px;color:var(--accent)}
+  .players{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .chip{background:#f0ebe3;border-radius:999px;padding:6px 12px;font-size:14px}
+  .chip.off{opacity:.45}
+  .theme{font-size:22px;font-weight:800;margin:0}
+  .bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .timer{font-variant-numeric:tabular-nums;font-size:28px;font-weight:800}
+  .timer.low{color:#c0392b}
+  canvas{width:100%;background:#fff;border:2px solid var(--ink);border-radius:10px;touch-action:none;display:block}
+  .tools{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+  .sw{width:32px;height:32px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px var(--line);padding:0}
+  .sw.sel{box-shadow:0 0 0 3px var(--ink)}
+  .tb{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+  .tb.sel{background:var(--ink);color:#fff}
+  .stars{display:flex;justify-content:center;gap:6px;margin:12px 0}
+  .star{background:none;border:0;font-size:52px;line-height:1;color:#ddd;padding:2px}
+  .star.on{color:#ffb400}
+  .star:disabled{opacity:.4}
+  .rimg{width:100%;border:2px solid var(--ink);border-radius:10px;background:#fff;display:block}
+  .prog{height:8px;background:#eadfd2;border-radius:99px;overflow:hidden;margin:10px 0}
+  .prog>i{display:block;height:100%;background:var(--accent);width:100%}
+  .rank{display:flex;gap:12px;align-items:center}
+  .rank img{width:120px;border-radius:8px;border:1px solid var(--line);background:#fff}
+  .rank .pos{font-size:26px;font-weight:800;width:44px;text-align:center}
+  .center{text-align:center}
+</style>
+</head>
+<body>
+
+<div id="join" class="screen active">
+  <h1>🎨 Gambar Bareng</h1>
+  <p class="muted">Gambar tema acak dalam 5 menit, lalu nilai gambar teman-temanmu.</p>
+  <div class="card">
+    <input id="name" placeholder="Nama kamu" maxlength="16" autocomplete="off">
+    <input id="roomCode" placeholder="Kode room (kosongkan untuk membuat baru)" maxlength="4" autocapitalize="characters" autocomplete="off">
+    <div class="err" id="joinErr"></div>
+    <button class="btn" id="joinBtn">Masuk</button>
+  </div>
+  <p class="muted" style="font-size:13px">Yang membuat room adalah host: tab-nya harus tetap terbuka selama game berlangsung.</p>
+</div>
+
+<div id="lobby" class="screen">
+  <div class="card center">
+    <div class="muted">Kode room — bagikan ke teman</div>
+    <div class="code" id="lobbyCode"></div>
+  </div>
+  <div class="card">
+    <h2>Pemain (<span id="pcount">0</span>)</h2>
+    <div class="players" id="plist"></div>
+  </div>
+  <div class="err center" id="lobbyErr"></div>
+  <button class="btn" id="startBtn">Mulai Game</button>
+  <p class="muted center" id="waitMsg"></p>
+</div>
+
+<div id="draw" class="screen">
+  <div class="bar">
+    <div><div class="muted" style="font-size:12px">TEMA</div><p class="theme" id="themeText"></p></div>
+    <div class="timer" id="timer">5:00</div>
+  </div>
+  <canvas id="cv" width="640" height="480"></canvas>
+  <div class="tools" id="colors"></div>
+  <div class="tools">
+    <button class="tb sel" id="penBtn">✏️ Pensil</button>
+    <button class="tb" id="eraseBtn">🧽 Hapus</button>
+    <label class="muted" style="font-size:13px">Tebal <input type="range" id="size" min="2" max="40" value="6" style="width:90px;padding:0;margin:0 0 0 4px;vertical-align:middle"></label>
+    <button class="tb" id="undoBtn">↩️ Undo</button>
+    <button class="tb" id="clearBtn">🗑️ Bersihkan</button>
+  </div>
+  <p class="muted center" id="drawNote"></p>
+</div>
+
+<div id="rate" class="screen">
+  <div class="bar">
+    <div><div class="muted" style="font-size:12px">TEMA</div><b id="rateTheme"></b></div>
+    <div class="muted" id="rateCount"></div>
+  </div>
+  <img id="rimg" class="rimg" alt="">
+  <div class="prog"><i id="prog"></i></div>
+  <div class="stars" id="stars"></div>
+  <p class="center muted" id="rateMsg"></p>
+</div>
+
+<div id="results" class="screen">
+  <h1 class="center">🏆 Hasil Akhir</h1>
+  <p class="center muted" id="resTheme"></p>
+  <div id="resList"></div>
+  <button class="btn" id="againBtn" style="display:none">Main Lagi</button>
+  <p class="muted center" id="againWait"></p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const showScreen = id => document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+
+// ====================== KONFIGURASI ======================
+const DRAW_SECONDS = 300;      // waktu menggambar (5 menit)
+const SHOW_MS = 3000;          // tampil 3 detik per gambar
+const COLLECT_GRACE_MS = 6000; // batas tunggu pengumpulan gambar
+const MAX_PLAYERS = 12;
+const PREFIX = 'gbr-';
+const THEMES = [
+  'Kucing naik motor', 'Rumah di atas awan', 'Robot makan nasi goreng', 'Hantu takut gelap',
+  'Pasar malam', 'Dinosaurus ke sekolah', 'Pulau terapung', 'Ikan terbang', 'Pizza raksasa',
+  'Astronot di sawah', 'Naga minum kopi', 'Kota di bawah laut', 'Gajah bermain skateboard',
+  'Pohon yang berjalan', 'Monster lucu', 'Liburan ke bulan', 'Sepeda terbang', 'Warung di hutan',
+  'Pahlawan super malas', 'Ayam jago superhero', 'Es krim meleleh', 'Kereta api ajaib',
+  'Alien belanja di pasar', 'Kastil dari kardus', 'Burung hantu jadi dokter', 'Banjir permen',
+  'Tikus dan keju raksasa', 'Penyihir naik ojek', 'Gunung berapi cokelat', 'Kapal bajak laut di sungai'
+];
+// STUN + TURN (akun Metered milikmu). Kalau perlu ganti, buat kredensial baru di dashboard Metered.
+const TURN_USER = 'fb0af55571760780a7516861';
+const TURN_PASS = 'prXKGxXwNseTRUlR';
+const PEER_OPTS = { config: { iceServers: [
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'turn:global.relay.metered.ca:80', username: TURN_USER, credential: TURN_PASS },
+  { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: TURN_USER, credential: TURN_PASS },
+  { urls: 'turn:global.relay.metered.ca:443', username: TURN_USER, credential: TURN_PASS },
+  { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: TURN_USER, credential: TURN_PASS }
+] } };
+
+// ====================== STATE UMUM ======================
+let isHost = false, myId = null, peer = null, hostConn = null;
+let S = null, offset = 0, curRound = -1, submitted = false, curShow = null, myStars = 0, myName = '';
+const imgCache = {}; // ownerId -> gambar (dikirim lewat pesan 'show')
+
+// ====================== LOGIKA HOST ======================
+const H = { players: new Map(), phase: 'lobby', theme: null, endsAt: null, round: 0,
+  drawings: new Map(), ratings: new Map(), current: null, results: null, order: [], idx: 0, timer: null };
+
+function hSend(p, msg) {
+  if (p.id === 'host') setTimeout(() => onMsg(msg), 0);
+  else if (p.conn && p.conn.open) { try { p.conn.send(msg); } catch (_) {} }
+}
+function hBroadcast(msg) { H.players.forEach(p => hSend(p, msg)); }
+function hState() {
+  return { type: 'state', now: Date.now(), phase: H.phase, hostId: 'host', theme: H.theme, endsAt: H.endsAt, round: H.round,
+    players: [...H.players.values()].map(p => ({ id: p.id, name: p.name, connected: p.connected })),
+    results: H.phase === 'results' ? H.results : null };
+}
+const hPush = () => hBroadcast(hState());
+
+function hStart() {
+  clearTimeout(H.timer);
+  H.round++; H.phase = 'drawing';
+  H.theme = THEMES[Math.floor(Math.random() * THEMES.length)];
+  H.endsAt = Date.now() + DRAW_SECONDS * 1000;
+  H.drawings = new Map(); H.ratings = new Map(); H.current = null; H.results = null;
+  hPush();
+  H.timer = setTimeout(hEndDrawing, DRAW_SECONDS * 1000);
+  try { navigator.wakeLock && navigator.wakeLock.request('screen'); } catch (_) {}
+}
+function hEndDrawing() {
+  if (H.phase !== 'drawing') return;
+  H.phase = 'collecting'; hPush();
+  hBroadcast({ type: 'collect' });
+  H.timer = setTimeout(hStartRating, COLLECT_GRACE_MS);
+}
+function hMaybeFinishCollecting() {
+  if (H.phase !== 'collecting') return;
+  const conn = [...H.players.values()].filter(p => p.connected);
+  if (conn.every(p => H.drawings.has(p.id))) { clearTimeout(H.timer); hStartRating(); }
+}
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function hStartRating() {
+  if (H.phase !== 'collecting') return;
+  clearTimeout(H.timer);
+  H.order = shuffle([...H.drawings.keys()]); H.idx = 0; H.phase = 'rating';
+  hPush(); hShowNext();
+}
+function hShowNext() {
+  if (H.phase !== 'rating') return;
+  if (H.idx >= H.order.length) return hFinish();
+  const owner = H.order[H.idx];
+  H.current = { idx: H.idx, total: H.order.length, ownerId: owner, image: H.drawings.get(owner), endsAt: Date.now() + SHOW_MS };
+  H.ratings.set(owner, new Map());
+  hBroadcast({ type: 'show', now: Date.now(), ...H.current });
+  H.timer = setTimeout(() => { H.idx++; hShowNext(); }, SHOW_MS);
+}
+function hFinish() {
+  clearTimeout(H.timer); H.current = null;
+  H.results = H.order.map(id => {
+    const votes = [...(H.ratings.get(id) || new Map()).values()];
+    const avg = votes.length ? votes.reduce((a, b) => a + b, 0) / votes.length : 0;
+    return { id, name: H.players.get(id)?.name || '?', avg: Math.round(avg * 100) / 100, count: votes.length };
+  }).sort((a, b) => b.avg - a.avg || b.count - a.count);
+  H.phase = 'results'; hPush();
+}
+function hReset() {
+  clearTimeout(H.timer);
+  H.phase = 'lobby'; H.theme = null; H.endsAt = null; H.drawings = new Map(); H.ratings = new Map(); H.current = null; H.results = null;
+  H.players.forEach((p, id) => { if (!p.connected) H.players.delete(id); });
+  hPush();
+}
+// aksi dari pemain (guest lewat koneksi, host lewat panggilan langsung)
+function hAction(pid, m) {
+  const p = H.players.get(pid); if (!p) return;
+  if (m.t === 'start' && pid === 'host') {
+    if (H.phase !== 'lobby') return;
+    if ([...H.players.values()].filter(x => x.connected).length < 2) return hSend(p, { type: 'notice', msg: 'Minimal 2 pemain' });
+    hStart();
+  } else if (m.t === 'submit') {
+    const img = String(m.image || '');
+    if (!['drawing', 'collecting'].includes(H.phase)) return;
+    if (!img.startsWith('data:image/jpeg;base64,') || img.length > 1.5 * 1024 * 1024) return;
+    if (!H.drawings.has(pid)) H.drawings.set(pid, img);
+    hMaybeFinishCollecting();
+  } else if (m.t === 'rate') {
+    const stars = Math.round(+m.stars), cur = H.current;
+    if (H.phase !== 'rating' || !cur) return;
+    if (cur.ownerId === pid) return;                 // tidak boleh menilai gambar sendiri
+    if (!(stars >= 1 && stars <= 5) || +m.idx !== cur.idx) return;
+    H.ratings.get(cur.ownerId).set(pid, stars);
+  } else if (m.t === 'reset' && pid === 'host') {
+    if (H.phase === 'results') hReset();
+  }
+}
+function hOnConnection(conn) {
+  conn.on('data', m => {
+    if (m && m.t === 'hello') {
+      if (H.phase !== 'lobby') { conn.send({ type: 'fatal', msg: 'Game sedang berjalan, tunggu ronde berikutnya' }); setTimeout(() => conn.close(), 300); return; }
+      if (H.players.size >= MAX_PLAYERS) { conn.send({ type: 'fatal', msg: 'Room penuh' }); setTimeout(() => conn.close(), 300); return; }
+      H.players.set(conn.peer, { id: conn.peer, name: String(m.name || 'Pemain').slice(0, 16), conn, connected: true });
+      hPush();
+    } else hAction(conn.peer, m);
+  });
+  conn.on('close', () => {
+    const p = H.players.get(conn.peer); if (!p) return;
+    if (H.phase === 'lobby') H.players.delete(conn.peer); else p.connected = false;
+    hPush(); hMaybeFinishCollecting();
+  });
+}
+
+// ====================== KONEKSI ======================
+function makeCode() { const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; return Array.from({ length: 4 }, () => L[Math.floor(Math.random() * L.length)]).join(''); }
+const joinErr = t => { $('joinErr').textContent = t; $('joinBtn').disabled = false; };
+
+function createRoom(name, tries = 0) {
+  const code = makeCode();
+  const p = new Peer(PREFIX + code, PEER_OPTS);
+  const to = setTimeout(() => {
+    try { p.destroy(); } catch (_) {}
+    joinErr('Tidak bisa menghubungi layanan PeerJS. Pastikan internet aktif dan buka lewat browser biasa (Chrome), bukan pratinjau file.');
+  }, 15000);
+  p.on('open', () => {
+    clearTimeout(to);
+    peer = p; isHost = true; myId = 'host';
+    H.players.set('host', { id: 'host', name, conn: null, connected: true });
+    p.on('connection', hOnConnection);
+    p.on('disconnected', () => { try { p.reconnect(); } catch (_) {} });
+    hPush();
+  });
+  p.on('error', e => {
+    clearTimeout(to);
+    if (e.type === 'unavailable-id' && tries < 5) return createRoom(name, tries + 1);
+    joinErr('Gagal membuat room (' + e.type + '). Coba lagi.');
+  });
+}
+
+function joinRoom(name, code) {
+  const p = new Peer(PEER_OPTS);
+  let done = false;
+  const fail = t => { if (done) return; done = true; try { p.destroy(); } catch (_) {} joinErr(t); };
+  const timeout = setTimeout(() => fail('Tidak bisa tersambung ke room. Cek kode atau jaringan.'), 15000);
+  p.on('error', e => fail(e.type === 'peer-unavailable' ? 'Room tidak ditemukan' : 'Gagal tersambung (' + e.type + ')'));
+  p.on('open', id => {
+    const conn = p.connect(PREFIX + code, { reliable: true });
+    conn.on('open', () => {
+      if (done) return; done = true; clearTimeout(timeout);
+      peer = p; hostConn = conn; myId = id; isHost = false;
+      conn.send({ t: 'hello', name });
+    });
+    conn.on('data', m => onMsg(m));
+    conn.on('close', () => { if (done && S) { alert('Koneksi ke host terputus'); location.reload(); } });
+  });
+}
+
+$('joinBtn').onclick = () => {
+  $('joinErr').textContent = '';
+  myName = $('name').value.trim();
+  if (!myName) return joinErr('Nama wajib diisi');
+  if (typeof Peer === 'undefined') return joinErr('Pustaka PeerJS gagal dimuat. Cek internet.');
+  $('joinBtn').disabled = true;
+  $('joinErr').textContent = 'Menghubungkan…';
+  const code = $('roomCode').value.trim().toUpperCase();
+  code ? joinRoom(myName, code) : createRoom(myName);
+};
+
+// aksi pemain ke host
+function act(m) { if (isHost) hAction('host', m); else if (hostConn && hostConn.open) hostConn.send(m); }
+
+// ====================== PENERIMA PESAN (semua pemain) ======================
+function onMsg(m) {
+  if (m.type === 'state') { S = m; offset = m.now - Date.now(); render(); }
+  else if (m.type === 'collect') submitDrawing();
+  else if (m.type === 'show') { offset = m.now - Date.now(); imgCache[m.ownerId] = m.image; showDrawing(m); }
+  else if (m.type === 'notice') $('lobbyErr').textContent = m.msg;
+  else if (m.type === 'fatal') { alert(m.msg); location.reload(); }
+}
+const now = () => Date.now() + offset;
+
+function render() {
+  if (S.phase === 'lobby') renderLobby();
+  else if (S.phase === 'drawing' || S.phase === 'collecting') renderDraw();
+  else if (S.phase === 'rating') { $('rateTheme').textContent = S.theme || ''; showScreen('rate'); }
+  else if (S.phase === 'results') renderResults();
+}
+
+// ---------- Lobi ----------
+function renderLobby() {
+  showScreen('lobby'); curRound = -1;
+  $('lobbyCode').textContent = isHost ? peer.id.slice(PREFIX.length) : $('roomCode').value.trim().toUpperCase();
+  $('pcount').textContent = S.players.length;
+  $('plist').innerHTML = '';
+  S.players.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'chip' + (p.connected ? '' : ' off');
+    d.textContent = p.name + (p.id === S.hostId ? ' 👑' : '') + (p.id === myId ? ' (kamu)' : '');
+    $('plist').appendChild(d);
+  });
+  $('startBtn').style.display = isHost ? '' : 'none';
+  $('waitMsg').textContent = isHost ? 'Minimal 2 pemain. Jangan tutup tab ini selama game.' : 'Menunggu host memulai game…';
+}
+$('startBtn').onclick = () => { $('lobbyErr').textContent = ''; act({ t: 'start' }); };
+
+// ---------- Menggambar ----------
+const cv = $('cv'), ctx = cv.getContext('2d');
+const COLORS = ['#000000', '#ffffff', '#e74c3c', '#ff9f1c', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db', '#6c5ce7', '#e84393', '#8b5a2b', '#95a5a6'];
+let color = '#000000', tool = 'pen', drawing = false, last = null, undoStack = [];
+COLORS.forEach((c, i) => {
+  const b = document.createElement('button');
+  b.className = 'sw' + (i === 0 ? ' sel' : ''); b.style.background = c;
+  b.onclick = () => { color = c; tool = 'pen'; sync(); document.querySelectorAll('.sw').forEach(x => x.classList.toggle('sel', x === b)); };
+  $('colors').appendChild(b);
+});
+function sync() { $('penBtn').classList.toggle('sel', tool === 'pen'); $('eraseBtn').classList.toggle('sel', tool === 'erase'); }
+$('penBtn').onclick = () => { tool = 'pen'; sync(); };
+$('eraseBtn').onclick = () => { tool = 'erase'; sync(); };
+function blank() { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); }
+function snapshot() { undoStack.push(ctx.getImageData(0, 0, cv.width, cv.height)); if (undoStack.length > 15) undoStack.shift(); }
+$('undoBtn').onclick = () => { if (undoStack.length) ctx.putImageData(undoStack.pop(), 0, 0); };
+$('clearBtn').onclick = () => { snapshot(); blank(); };
+function pos(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
+function stroke(a, b) {
+  ctx.strokeStyle = tool === 'erase' ? '#fff' : color;
+  ctx.lineWidth = +$('size').value; ctx.lineCap = ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+}
+const locked = () => !S || S.phase !== 'drawing' || now() >= S.endsAt;
+cv.addEventListener('pointerdown', e => {
+  if (locked()) return;
+  cv.setPointerCapture(e.pointerId); snapshot(); drawing = true; last = pos(e);
+  stroke(last, { x: last.x + .01, y: last.y });
+});
+cv.addEventListener('pointermove', e => { if (!drawing) return; const p = pos(e); stroke(last, p); last = p; });
+['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { drawing = false; }));
+
+function renderDraw() {
+  showScreen('draw');
+  $('themeText').textContent = S.theme;
+  if (curRound !== S.round) { curRound = S.round; submitted = false; undoStack = []; blank(); }
+  $('drawNote').textContent = S.phase === 'collecting' ? 'Waktu habis! Mengumpulkan gambar…' : '';
+}
+setInterval(() => {
+  if (!S || S.phase !== 'drawing') return;
+  const left = Math.max(0, Math.ceil((S.endsAt - now()) / 1000));
+  $('timer').textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+  $('timer').classList.toggle('low', left <= 30);
+}, 200);
+function submitDrawing() {
+  if (submitted) return;
+  submitted = true; drawing = false;
+  $('timer').textContent = '0:00';
+  $('drawNote').textContent = 'Waktu habis! Mengumpulkan gambar…';
+  act({ t: 'submit', image: cv.toDataURL('image/jpeg', 0.65) });
+}
+
+// ---------- Menilai ----------
+const starBtns = [];
+for (let i = 1; i <= 5; i++) {
+  const b = document.createElement('button');
+  b.className = 'star'; b.textContent = '★';
+  b.onclick = () => {
+    if (!curShow || curShow.ownerId === myId) return;
+    myStars = i; paintStars(); act({ t: 'rate', stars: i, idx: curShow.idx });
+  };
+  $('stars').appendChild(b); starBtns.push(b);
+}
+function paintStars() { starBtns.forEach((b, i) => b.classList.toggle('on', i < myStars)); }
+function showDrawing(m) {
+  curShow = m; myStars = 0; paintStars(); showScreen('rate');
+  $('rimg').src = m.image;
+  $('rateCount').textContent = `Gambar ${m.idx + 1} / ${m.total}`;
+  if (S) $('rateTheme').textContent = S.theme || '';
+  const mine = m.ownerId === myId;
+  starBtns.forEach(b => b.disabled = mine);
+  $('rateMsg').textContent = mine ? 'Ini gambarmu — kamu tidak bisa menilainya 😄' : 'Ketuk bintang untuk menilai!';
+  const dur = m.endsAt - m.now, start = performance.now();
+  (function tick() {
+    if (curShow !== m) return;
+    const left = Math.max(0, dur - (performance.now() - start));
+    $('prog').style.width = (left / SHOW_MS * 100) + '%';
+    if (left > 0) requestAnimationFrame(tick);
+  })();
+}
+
+// ---------- Hasil ----------
+const starsTxt = avg => { const f = Math.round(avg); return '★'.repeat(f) + '☆'.repeat(5 - f); };
+function renderResults() {
+  showScreen('results'); curShow = null;
+  $('resTheme').textContent = 'Tema: ' + (S.theme || '');
+  const list = $('resList'); list.innerHTML = '';
+  if (!S.results || !S.results.length) list.innerHTML = '<div class="card center muted">Tidak ada gambar yang terkumpul.</div>';
+  (S.results || []).forEach((r, i) => {
+    const d = document.createElement('div'); d.className = 'card rank';
+    d.innerHTML = `<div class="pos">${['🥇', '🥈', '🥉'][i] || (i + 1)}</div><img alt=""><div><b></b><div style="color:#ffb400;font-size:20px">${starsTxt(r.avg)}</div><div class="muted" style="font-size:13px">${r.count ? r.avg.toFixed(2) + ' dari ' + r.count + ' penilai' : 'Belum ada penilai'}</div></div>`;
+    d.querySelector('img').src = imgCache[r.id] || '';
+    d.querySelector('b').textContent = r.name + (r.id === myId ? ' (kamu)' : '');
+    list.appendChild(d);
+  });
+  $('againBtn').style.display = isHost ? '' : 'none';
+  $('againWait').textContent = isHost ? '' : 'Menunggu host untuk main lagi…';
+}
+$('againBtn').onclick = () => act({ t: 'reset' });
+</script>
+</body>
+</html>
