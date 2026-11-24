@@ -9,7 +9,7 @@
   :root{--bg:#f6f3ee;--card:#fff;--ink:#222;--muted:#777;--accent:#ff6b35;--line:#e5e0d8}
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
-  .screen{display:none;max-width:760px;margin:0 auto;padding:16px}
+  .screen{display:none;max-width:760px;margin:0 auto;padding:16px 16px 84px}
   .screen.active{display:block}
   h1{margin:8px 0 4px;font-size:28px}
   h2{margin:0 0 8px}
@@ -34,6 +34,19 @@
   #wheelPanel{display:none;margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
   #wheelPanel.open{display:block}
   #wheelCv{width:200px;height:200px;touch-action:none;border-radius:50%;cursor:crosshair}
+  #chatBtn{position:fixed;right:14px;bottom:14px;width:54px;height:54px;border-radius:50%;border:0;background:var(--ink);color:#fff;font-size:24px;z-index:40;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+  #chatBadge{position:absolute;top:-4px;right:-4px;background:#e74c3c;color:#fff;border-radius:99px;font-size:12px;min-width:20px;height:20px;line-height:20px;padding:0 5px}
+  #chatPanel{display:none;position:fixed;left:0;right:0;bottom:0;max-width:760px;margin:0 auto;height:55vh;background:#fff;border:1px solid var(--line);border-radius:16px 16px 0 0;z-index:45;flex-direction:column;box-shadow:0 -6px 20px rgba(0,0,0,.25)}
+  #chatPanel.open{display:flex}
+  .chead{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .chead button{background:none;border:0;font-size:20px}
+  #chatList{flex:1;overflow-y:auto;padding:10px 14px}
+  .msg{margin:6px 0;font-size:15px;word-break:break-word}
+  .msg b{color:var(--accent)}
+  .msg.me b{color:#2a7de1}
+  #chatForm{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
+  #chatForm input{flex:1;min-width:0;width:auto;margin:0}
+  #chatForm button{width:auto;margin:0;padding:10px 16px}
   #themeOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:50;opacity:0;transition:opacity .35s}
   #themeOverlay.show{opacity:1}
   #themeOverlay .box{background:rgba(20,20,20,.85);color:#fff;border-radius:22px;padding:26px 36px;text-align:center;max-width:88vw}
@@ -147,6 +160,16 @@
   <p class="muted center" id="againWait"></p>
 </div>
 
+<button id="chatBtn" style="display:none" aria-label="Chat">💬<span id="chatBadge" style="display:none">0</span></button>
+<div id="chatPanel">
+  <div class="chead"><b>💬 Chat room</b><button id="chatClose" aria-label="Tutup">✕</button></div>
+  <div id="chatList"></div>
+  <form id="chatForm">
+    <input id="chatInput" maxlength="200" autocomplete="off" placeholder="Tulis pesan…">
+    <button type="submit" class="btn">Kirim</button>
+  </form>
+</div>
+
 <div id="themeOverlay"><div class="box"><div class="lbl">TEMA</div><div class="big" id="themeBig"></div></div></div>
 
 <script>
@@ -155,7 +178,7 @@ const showScreen = id => document.querySelectorAll('.screen').forEach(s => s.cla
 
 // ====================== KONFIGURASI ======================
 const DRAW_SECONDS = 300;      // waktu menggambar (5 menit)
-const SHOW_MS = 3000;          // tampil 3 detik per gambar
+const SHOW_MS = 5000;          // tampil 5 detik per gambar
 const COLLECT_GRACE_MS = 6000; // batas tunggu pengumpulan gambar
 const GRACE_MS = 1500;         // toleransi bintang yang telat karena jaringan
 const MAX_PLAYERS = 12;
@@ -187,7 +210,7 @@ const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAA
 
 // ====================== LOGIKA HOST ======================
 const H = { players: new Map(), phase: 'lobby', theme: null, endsAt: null, round: 0,
-  drawings: new Map(), ratings: new Map(), current: null, results: null, order: [], idx: 0, timer: null, ready: new Set() };
+  drawings: new Map(), ratings: new Map(), current: null, results: null, order: [], idx: 0, timer: null, ready: new Set(), chat: [] };
 
 function hSend(p, msg) {
   if (p.id === 'host') setTimeout(() => onMsg(msg), 0);
@@ -272,6 +295,13 @@ function hAction(pid, m) {
     if (H.phase !== 'lobby') return;
     if ([...H.players.values()].filter(x => x.connected).length < 2) return hSend(p, { type: 'notice', msg: 'Minimal 2 pemain' });
     hStart();
+  } else if (m.t === 'chat') {             // pesan chat: host menyebarkan ke semua pemain
+    const text = String(m.text || '').trim().slice(0, 200), t = Date.now();
+    if (!text || t - (p.lastChat || 0) < 400) return;   // kosong / terlalu cepat (anti-spam)
+    p.lastChat = t;
+    const msg = { type: 'chat', from: pid, name: p.name, text };
+    H.chat.push(msg); if (H.chat.length > 50) H.chat.shift();
+    hBroadcast(msg);
   } else if (m.t === 'ready') {            // pemain menekan "Selesai" (boleh berkali-kali, gambar terbaru menimpa)
     const img = String(m.image || '');
     if (!['drawing', 'collecting'].includes(H.phase)) return;
@@ -314,6 +344,7 @@ function hOnConnection(conn) {
       if (H.players.size >= MAX_PLAYERS) { conn.send({ type: 'fatal', msg: 'Room penuh' }); setTimeout(() => conn.close(), 300); return; }
       H.players.set(conn.peer, { id: conn.peer, name: String(m.name || 'Pemain').slice(0, 16), conn, connected: true });
       hPush();
+      hSend(H.players.get(conn.peer), { type: 'chatlog', msgs: H.chat });
     } else hAction(conn.peer, m);
   });
   conn.on('close', () => {
@@ -383,13 +414,39 @@ function act(m) { if (isHost) hAction('host', m); else if (hostConn && hostConn.
 
 // ====================== PENERIMA PESAN (semua pemain) ======================
 function onMsg(m) {
-  if (m.type === 'state') { S = m; offset = m.now - Date.now(); render(); }
+  if (m.type === 'state') { S = m; offset = m.now - Date.now(); $('chatBtn').style.display = ''; render(); }
+  else if (m.type === 'chat') chatAdd(m, true);
+  else if (m.type === 'chatlog') { $('chatList').innerHTML = ''; m.msgs.forEach(x => chatAdd(x, false)); }
   else if (m.type === 'collect') submitDrawing();
   else if (m.type === 'show') { offset = m.now - Date.now(); imgCache[m.ownerId] = m.image; showDrawing(m); }
   else if (m.type === 'notice') $('lobbyErr').textContent = m.msg;
   else if (m.type === 'fatal') { alert(m.msg); location.reload(); }
 }
 const now = () => Date.now() + offset;
+
+// ====================== CHAT ======================
+let chatOpen = false, unread = 0;
+function updBadge() { const b = $('chatBadge'); b.textContent = unread > 9 ? '9+' : unread; b.style.display = unread ? '' : 'none'; }
+function chatAdd(m, live) {
+  const d = document.createElement('div'); d.className = 'msg' + (m.from === myId ? ' me' : '');
+  const b = document.createElement('b'); b.textContent = m.name + ': ';
+  const t = document.createElement('span'); t.textContent = m.text;
+  d.append(b, t); $('chatList').appendChild(d);
+  while ($('chatList').children.length > 100) $('chatList').firstChild.remove();
+  $('chatList').scrollTop = $('chatList').scrollHeight;
+  if (live && !chatOpen && m.from !== myId) { unread++; updBadge(); }
+}
+function setChat(open) {
+  chatOpen = open; $('chatPanel').classList.toggle('open', open);
+  if (open) { unread = 0; updBadge(); $('chatList').scrollTop = $('chatList').scrollHeight; }
+}
+$('chatBtn').onclick = () => setChat(!chatOpen);
+$('chatClose').onclick = () => setChat(false);
+$('chatForm').onsubmit = e => {
+  e.preventDefault();
+  const v = $('chatInput').value.trim(); if (!v) return;
+  act({ t: 'chat', text: v }); $('chatInput').value = '';
+};
 
 function render() {
   if (S.phase === 'lobby') renderLobby();
@@ -399,7 +456,7 @@ function render() {
     if (!curShow) {   // jeda sebelum gambar pertama
       $('rimg').src = BLANK_IMG; $('rateCount').textContent = ''; $('prog').style.width = '100%';
       starBtns.forEach(b => b.disabled = true);
-      $('rateMsg').textContent = '⏳ Bersiap! Sebentar lagi gambar tampil satu per satu — ketuk bintang untuk menilai (3 detik per gambar).';
+      $('rateMsg').textContent = '⏳ Bersiap! Sebentar lagi gambar tampil satu per satu — ketuk bintang untuk menilai (5 detik per gambar).';
     }
   }
   else if (S.phase === 'results') renderResults();
@@ -633,11 +690,11 @@ setInterval(() => {
   $('timer').textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
   $('timer').classList.toggle('low', left <= 30);
 }, 200);
-// gabungkan ke latar putih (JPEG tidak hitam) dan perkecil ke 480x360 supaya cepat terkirim
+// ukuran asli kanvas (640x480), digabung ke latar putih supaya JPEG tidak hitam
 function exportImage() {
-  const tmp = document.createElement('canvas'); tmp.width = 480; tmp.height = 360;
-  const tc = tmp.getContext('2d'); tc.fillStyle = '#fff'; tc.fillRect(0, 0, 480, 360); tc.drawImage(cv, 0, 0, 480, 360);
-  return tmp.toDataURL('image/jpeg', 0.6);
+  const tmp = document.createElement('canvas'); tmp.width = cv.width; tmp.height = cv.height;
+  const tc = tmp.getContext('2d'); tc.fillStyle = '#fff'; tc.fillRect(0, 0, tmp.width, tmp.height); tc.drawImage(cv, 0, 0);
+  return tmp.toDataURL('image/jpeg', 0.7);
 }
 // dipanggil host saat waktu habis: kirim gambar hanya kalau pemain belum menekan "Selesai"
 function submitDrawing() {
@@ -677,7 +734,7 @@ for (let i = 1; i <= 5; i++) {
   b.onclick = () => {
     if (!curShow || curShow.ownerId === myId) return;
     myStars = i; paintStars(); act({ t: 'rate', stars: i, idx: curShow.idx });
-    $('rateMsg').textContent = '✓ Kamu memberi ' + i + ' bintang (bisa diubah selama 3 detik)';
+    $('rateMsg').textContent = '✓ Kamu memberi ' + i + ' bintang (bisa diubah selama 5 detik)';
   };
   $('stars').appendChild(b); starBtns.push(b);
 }
