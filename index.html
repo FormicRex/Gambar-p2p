@@ -18,6 +18,7 @@
   button{font:inherit;cursor:pointer}
   .btn{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:600;font-size:16px;width:100%;margin-top:6px}
   .btn:disabled{opacity:.5}
+  .btn.alt{background:#fff;color:var(--ink);border:1px solid var(--line)}
   .muted{color:var(--muted)}
   .err{color:#c0392b;min-height:20px;font-size:14px}
   .code{font-size:34px;font-weight:800;letter-spacing:6px;color:var(--accent)}
@@ -89,6 +90,15 @@
     <button class="tb" id="undoBtn">↩️ Undo</button>
     <button class="tb" id="clearBtn">🗑️ Bersihkan</button>
   </div>
+  <div id="drawActions" style="margin-top:10px">
+    <button class="btn" id="submitBtn">✅ Selesai — Kirim Gambar</button>
+    <div id="waitBox" class="card center" style="display:none;margin-top:10px">
+      <b>Gambarmu sudah terkirim ✅</b>
+      <div class="muted" style="margin:4px 0">Menunggu pemain lain… (<span id="readyCount">0/0</span> selesai)</div>
+      <div class="muted" style="font-size:13px">Game lanjut otomatis begitu semua selesai atau waktu habis.</div>
+      <button class="btn alt" id="editBtn">✏️ Edit lagi</button>
+    </div>
+  </div>
   <p class="muted center" id="drawNote"></p>
 </div>
 
@@ -119,6 +129,7 @@ const showScreen = id => document.querySelectorAll('.screen').forEach(s => s.cla
 const DRAW_SECONDS = 300;      // waktu menggambar (5 menit)
 const SHOW_MS = 3000;          // tampil 3 detik per gambar
 const COLLECT_GRACE_MS = 6000; // batas tunggu pengumpulan gambar
+const GRACE_MS = 1500;         // toleransi bintang yang telat karena jaringan
 const MAX_PLAYERS = 12;
 const PREFIX = 'gbr-';
 const THEMES = [
@@ -146,10 +157,11 @@ const PEER_OPTS = { config: { iceServers: [
 let isHost = false, myId = null, peer = null, hostConn = null;
 let S = null, offset = 0, curRound = -1, submitted = false, curShow = null, myStars = 0, myName = '';
 const imgCache = {}; // ownerId -> gambar (dikirim lewat pesan 'show')
+const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 // ====================== LOGIKA HOST ======================
 const H = { players: new Map(), phase: 'lobby', theme: null, endsAt: null, round: 0,
-  drawings: new Map(), ratings: new Map(), current: null, results: null, order: [], idx: 0, timer: null };
+  drawings: new Map(), ratings: new Map(), current: null, results: null, order: [], idx: 0, timer: null, ready: new Set() };
 
 function hSend(p, msg) {
   if (p.id === 'host') setTimeout(() => onMsg(msg), 0);
@@ -158,7 +170,7 @@ function hSend(p, msg) {
 function hBroadcast(msg) { H.players.forEach(p => hSend(p, msg)); }
 function hState() {
   return { type: 'state', now: Date.now(), phase: H.phase, hostId: 'host', theme: H.theme, endsAt: H.endsAt, round: H.round,
-    players: [...H.players.values()].map(p => ({ id: p.id, name: p.name, connected: p.connected })),
+    players: [...H.players.values()].map(p => ({ id: p.id, name: p.name, connected: p.connected, ready: H.ready.has(p.id) })),
     results: H.phase === 'results' ? H.results : null };
 }
 const hPush = () => hBroadcast(hState());
@@ -168,7 +180,7 @@ function hStart() {
   H.round++; H.phase = 'drawing';
   H.theme = THEMES[Math.floor(Math.random() * THEMES.length)];
   H.endsAt = Date.now() + DRAW_SECONDS * 1000;
-  H.drawings = new Map(); H.ratings = new Map(); H.current = null; H.results = null;
+  H.drawings = new Map(); H.ratings = new Map(); H.current = null; H.lastShow = null; H.results = null; H.ready = new Set();
   hPush();
   H.timer = setTimeout(hEndDrawing, DRAW_SECONDS * 1000);
   try { navigator.wakeLock && navigator.wakeLock.request('screen'); } catch (_) {}
@@ -178,6 +190,16 @@ function hEndDrawing() {
   H.phase = 'collecting'; hPush();
   hBroadcast({ type: 'collect' });
   H.timer = setTimeout(hStartRating, COLLECT_GRACE_MS);
+}
+// semua pemain yang terhubung sudah menekan "Selesai" -> langsung lanjut ke penilaian
+function hMaybeAllReady() {
+  if (H.phase !== 'drawing') return;
+  const conn = [...H.players.values()].filter(p => p.connected);
+  if (conn.length && conn.every(p => H.ready.has(p.id))) {
+    clearTimeout(H.timer);
+    H.phase = 'collecting';
+    hStartRating();
+  }
 }
 function hMaybeFinishCollecting() {
   if (H.phase !== 'collecting') return;
@@ -189,12 +211,14 @@ function hStartRating() {
   if (H.phase !== 'collecting') return;
   clearTimeout(H.timer);
   H.order = shuffle([...H.drawings.keys()]); H.idx = 0; H.phase = 'rating';
-  hPush(); hShowNext();
+  hPush();
+  H.timer = setTimeout(hShowNext, 3000); // jeda 3 detik: "Bersiap menilai"
 }
 function hShowNext() {
   if (H.phase !== 'rating') return;
-  if (H.idx >= H.order.length) return hFinish();
+  if (H.idx >= H.order.length) { H.timer = setTimeout(hFinish, GRACE_MS); return; } // tunggu bintang yang telat
   const owner = H.order[H.idx];
+  if (H.current) H.lastShow = { idx: H.current.idx, ownerId: H.current.ownerId, until: Date.now() + GRACE_MS };
   H.current = { idx: H.idx, total: H.order.length, ownerId: owner, image: H.drawings.get(owner), endsAt: Date.now() + SHOW_MS };
   H.ratings.set(owner, new Map());
   hBroadcast({ type: 'show', now: Date.now(), ...H.current });
@@ -205,13 +229,13 @@ function hFinish() {
   H.results = H.order.map(id => {
     const votes = [...(H.ratings.get(id) || new Map()).values()];
     const avg = votes.length ? votes.reduce((a, b) => a + b, 0) / votes.length : 0;
-    return { id, name: H.players.get(id)?.name || '?', avg: Math.round(avg * 100) / 100, count: votes.length };
-  }).sort((a, b) => b.avg - a.avg || b.count - a.count);
+    return { id, name: H.players.get(id)?.name || '?', avg: Math.round(avg * 100) / 100, count: votes.length, total: votes.reduce((a, b) => a + b, 0) };
+  }).sort((a, b) => b.total - a.total || b.avg - a.avg);
   H.phase = 'results'; hPush();
 }
 function hReset() {
   clearTimeout(H.timer);
-  H.phase = 'lobby'; H.theme = null; H.endsAt = null; H.drawings = new Map(); H.ratings = new Map(); H.current = null; H.results = null;
+  H.phase = 'lobby'; H.theme = null; H.endsAt = null; H.drawings = new Map(); H.ratings = new Map(); H.current = null; H.results = null; H.ready = new Set();
   H.players.forEach((p, id) => { if (!p.connected) H.players.delete(id); });
   hPush();
 }
@@ -222,6 +246,20 @@ function hAction(pid, m) {
     if (H.phase !== 'lobby') return;
     if ([...H.players.values()].filter(x => x.connected).length < 2) return hSend(p, { type: 'notice', msg: 'Minimal 2 pemain' });
     hStart();
+  } else if (m.t === 'ready') {            // pemain menekan "Selesai" (boleh berkali-kali, gambar terbaru menimpa)
+    const img = String(m.image || '');
+    if (!['drawing', 'collecting'].includes(H.phase)) return;
+    if (!img.startsWith('data:image/jpeg;base64,') || img.length > 1.5 * 1024 * 1024) return;
+    if (H.phase === 'collecting') {        // "Selesai" yang tiba tepat saat waktu habis tetap dihitung
+      if (!H.drawings.has(pid)) H.drawings.set(pid, img);
+      return hMaybeFinishCollecting();
+    }
+    H.drawings.set(pid, img); H.ready.add(pid);
+    hPush(); hMaybeAllReady();
+  } else if (m.t === 'unready') {          // pemain kembali mengedit
+    if (H.phase !== 'drawing') return;
+    H.ready.delete(pid); H.drawings.delete(pid);
+    hPush();
   } else if (m.t === 'submit') {
     const img = String(m.image || '');
     if (!['drawing', 'collecting'].includes(H.phase)) return;
@@ -230,10 +268,15 @@ function hAction(pid, m) {
     hMaybeFinishCollecting();
   } else if (m.t === 'rate') {
     const stars = Math.round(+m.stars), cur = H.current;
-    if (H.phase !== 'rating' || !cur) return;
-    if (cur.ownerId === pid) return;                 // tidak boleh menilai gambar sendiri
-    if (!(stars >= 1 && stars <= 5) || +m.idx !== cur.idx) return;
-    H.ratings.get(cur.ownerId).set(pid, stars);
+    if (H.phase !== 'rating') return;
+    // terima untuk gambar yang sedang tampil, atau gambar sebelumnya jika telat <= GRACE_MS (jeda jaringan)
+    let tgt = null;
+    if (cur && +m.idx === cur.idx) tgt = cur;
+    else if (H.lastShow && +m.idx === H.lastShow.idx && Date.now() < H.lastShow.until) tgt = H.lastShow;
+    if (!tgt) return;
+    if (tgt.ownerId === pid) return;                 // tidak boleh menilai gambar sendiri
+    if (!(stars >= 1 && stars <= 5)) return;
+    H.ratings.get(tgt.ownerId).set(pid, stars);
   } else if (m.t === 'reset' && pid === 'host') {
     if (H.phase === 'results') hReset();
   }
@@ -250,7 +293,7 @@ function hOnConnection(conn) {
   conn.on('close', () => {
     const p = H.players.get(conn.peer); if (!p) return;
     if (H.phase === 'lobby') H.players.delete(conn.peer); else p.connected = false;
-    hPush(); hMaybeFinishCollecting();
+    hPush(); hMaybeFinishCollecting(); hMaybeAllReady();
   });
 }
 
@@ -325,7 +368,14 @@ const now = () => Date.now() + offset;
 function render() {
   if (S.phase === 'lobby') renderLobby();
   else if (S.phase === 'drawing' || S.phase === 'collecting') renderDraw();
-  else if (S.phase === 'rating') { $('rateTheme').textContent = S.theme || ''; showScreen('rate'); }
+  else if (S.phase === 'rating') {
+    $('rateTheme').textContent = S.theme || ''; showScreen('rate');
+    if (!curShow) {   // jeda sebelum gambar pertama
+      $('rimg').src = BLANK_IMG; $('rateCount').textContent = ''; $('prog').style.width = '100%';
+      starBtns.forEach(b => b.disabled = true);
+      $('rateMsg').textContent = '⏳ Bersiap! Sebentar lagi gambar tampil satu per satu — ketuk bintang untuk menilai (3 detik per gambar).';
+    }
+  }
   else if (S.phase === 'results') renderResults();
 }
 
@@ -349,7 +399,7 @@ $('startBtn').onclick = () => { $('lobbyErr').textContent = ''; act({ t: 'start'
 // ---------- Menggambar ----------
 const cv = $('cv'), ctx = cv.getContext('2d');
 const COLORS = ['#000000', '#ffffff', '#e74c3c', '#ff9f1c', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db', '#6c5ce7', '#e84393', '#8b5a2b', '#95a5a6'];
-let color = '#000000', tool = 'pen', drawing = false, last = null, undoStack = [];
+let color = '#000000', tool = 'pen', drawing = false, last = null, undoStack = [], myReady = false;
 COLORS.forEach((c, i) => {
   const b = document.createElement('button');
   b.className = 'sw' + (i === 0 ? ' sel' : ''); b.style.background = c;
@@ -361,15 +411,16 @@ $('penBtn').onclick = () => { tool = 'pen'; sync(); };
 $('eraseBtn').onclick = () => { tool = 'erase'; sync(); };
 function blank() { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); }
 function snapshot() { undoStack.push(ctx.getImageData(0, 0, cv.width, cv.height)); if (undoStack.length > 15) undoStack.shift(); }
-$('undoBtn').onclick = () => { if (undoStack.length) ctx.putImageData(undoStack.pop(), 0, 0); };
-$('clearBtn').onclick = () => { snapshot(); blank(); };
+$('undoBtn').onclick = () => { if (!locked() && undoStack.length) ctx.putImageData(undoStack.pop(), 0, 0); };
+$('clearBtn').onclick = () => { if (locked()) return; snapshot(); blank(); };
 function pos(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
 function stroke(a, b) {
   ctx.strokeStyle = tool === 'erase' ? '#fff' : color;
   ctx.lineWidth = +$('size').value; ctx.lineCap = ctx.lineJoin = 'round';
   ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
 }
-const locked = () => !S || S.phase !== 'drawing' || now() >= S.endsAt;
+const timeUp = () => !S || S.phase !== 'drawing' || now() >= S.endsAt;
+const locked = () => timeUp() || myReady;
 cv.addEventListener('pointerdown', e => {
   if (locked()) return;
   cv.setPointerCapture(e.pointerId); snapshot(); drawing = true; last = pos(e);
@@ -381,7 +432,9 @@ cv.addEventListener('pointermove', e => { if (!drawing) return; const p = pos(e)
 function renderDraw() {
   showScreen('draw');
   $('themeText').textContent = S.theme;
-  if (curRound !== S.round) { curRound = S.round; submitted = false; undoStack = []; blank(); }
+  if (curRound !== S.round) { curRound = S.round; submitted = false; myReady = false; curShow = null; undoStack = []; blank(); }
+  $('drawActions').style.display = S.phase === 'drawing' ? '' : 'none';
+  updateReadyUI();
   $('drawNote').textContent = S.phase === 'collecting' ? 'Waktu habis! Mengumpulkan gambar…' : '';
 }
 setInterval(() => {
@@ -390,13 +443,41 @@ setInterval(() => {
   $('timer').textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
   $('timer').classList.toggle('low', left <= 30);
 }, 200);
+// gabungkan ke latar putih (JPEG tidak hitam) dan perkecil ke 480x360 supaya cepat terkirim
+function exportImage() {
+  const tmp = document.createElement('canvas'); tmp.width = 480; tmp.height = 360;
+  const tc = tmp.getContext('2d'); tc.fillStyle = '#fff'; tc.fillRect(0, 0, 480, 360); tc.drawImage(cv, 0, 0, 480, 360);
+  return tmp.toDataURL('image/jpeg', 0.6);
+}
+// dipanggil host saat waktu habis: kirim gambar hanya kalau pemain belum menekan "Selesai"
 function submitDrawing() {
   if (submitted) return;
   submitted = true; drawing = false;
   $('timer').textContent = '0:00';
+  $('drawActions').style.display = 'none';
   $('drawNote').textContent = 'Waktu habis! Mengumpulkan gambar…';
-  act({ t: 'submit', image: cv.toDataURL('image/jpeg', 0.65) });
+  if (myReady) return;   // gambar sudah terkirim lewat tombol Selesai
+  act({ t: 'submit', image: exportImage() });
 }
+// tombol Selesai / Edit lagi (bisa bolak-balik selama waktu belum habis)
+function updateReadyUI() {
+  const conn = S ? S.players.filter(p => p.connected) : [];
+  $('submitBtn').style.display = myReady ? 'none' : '';
+  $('waitBox').style.display = myReady ? '' : 'none';
+  $('readyCount').textContent = conn.filter(p => p.ready).length + '/' + conn.length;
+}
+$('submitBtn').onclick = () => {
+  if (timeUp() || myReady) return;
+  myReady = true; drawing = false;
+  act({ t: 'ready', image: exportImage() });
+  updateReadyUI();
+};
+$('editBtn').onclick = () => {
+  if (timeUp() || !myReady) return;
+  myReady = false;
+  act({ t: 'unready' });
+  updateReadyUI();
+};
 
 // ---------- Menilai ----------
 const starBtns = [];
@@ -406,6 +487,7 @@ for (let i = 1; i <= 5; i++) {
   b.onclick = () => {
     if (!curShow || curShow.ownerId === myId) return;
     myStars = i; paintStars(); act({ t: 'rate', stars: i, idx: curShow.idx });
+    $('rateMsg').textContent = '✓ Kamu memberi ' + i + ' bintang (bisa diubah selama 3 detik)';
   };
   $('stars').appendChild(b); starBtns.push(b);
 }
@@ -436,7 +518,7 @@ function renderResults() {
   if (!S.results || !S.results.length) list.innerHTML = '<div class="card center muted">Tidak ada gambar yang terkumpul.</div>';
   (S.results || []).forEach((r, i) => {
     const d = document.createElement('div'); d.className = 'card rank';
-    d.innerHTML = `<div class="pos">${['🥇', '🥈', '🥉'][i] || (i + 1)}</div><img alt=""><div><b></b><div style="color:#ffb400;font-size:20px">${starsTxt(r.avg)}</div><div class="muted" style="font-size:13px">${r.count ? r.avg.toFixed(2) + ' dari ' + r.count + ' penilai' : 'Belum ada penilai'}</div></div>`;
+    d.innerHTML = `<div class="pos">${['🥇', '🥈', '🥉'][i] || (i + 1)}</div><img alt=""><div><b></b><div style="color:#ffb400;font-size:26px;font-weight:800">⭐ ${r.total}</div><div style="color:#ffb400;font-size:16px">${starsTxt(r.avg)}</div><div class="muted" style="font-size:13px">${r.count ? 'Total ' + r.total + ' bintang dari ' + r.count + ' penilai (rata-rata ' + r.avg.toFixed(2) + ')' : 'Belum ada yang menilai'}</div></div>`;
     d.querySelector('img').src = imgCache[r.id] || '';
     d.querySelector('b').textContent = r.name + (r.id === myId ? ' (kamu)' : '');
     list.appendChild(d);
