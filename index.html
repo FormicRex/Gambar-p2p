@@ -46,14 +46,45 @@
   .bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
   .timer{font-variant-numeric:tabular-nums;font-size:28px;font-weight:800}
   .timer.low{color:#c0392b}
-  #cvWrap{position:relative;width:100%;aspect-ratio:4/3;background:#fff;border:2px solid var(--ink);border-radius:10px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+  #cvWrap{position:relative;flex:none;width:min(100cqw,calc(100cqh*4/3));aspect-ratio:4/3;background:#fff;box-shadow:0 1px 8px rgba(0,0,0,.25);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
   #cv{position:absolute;left:0;top:0;width:100%;height:100%;transform-origin:0 0;touch-action:none;display:block}
   #remoteCur{position:absolute;display:none;pointer-events:none;z-index:5;width:0;height:0}
   #remoteCur .dot{position:absolute;left:-6px;top:-6px;width:12px;height:12px;border-radius:50%;background:#e74c3c;border:2px solid #fff;box-shadow:0 0 0 1.5px #000}
   #remoteCur .pen{position:absolute;left:3px;top:-30px;font-size:26px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.45))}
   #remoteCur .nm{position:absolute;left:30px;top:-24px;background:rgba(0,0,0,.75);color:#fff;font-size:11px;padding:1px 6px;border-radius:99px;white-space:nowrap}
-  #wheelPanel{display:none;margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
-  #wheelPanel.open{display:block}
+  /* ===== layar menggambar: kontrol atas, kanvas di tengah, alat di bawah ===== */
+  #draw.active{display:flex;flex-direction:column;max-width:none;height:100vh;height:100dvh;padding:0;background:#c4c4c4}
+  #drawTop{background:var(--bg);padding:8px 10px;border-bottom:1px solid #999}
+  #drawTop .bar{margin-bottom:6px}
+  #drawTop .theme{font-size:19px}
+  #drawTop .timer{font-size:24px}
+  .acts{display:flex;gap:8px;align-items:center}
+  .acts .sp{flex:1}
+  .rb{width:42px;height:42px;flex:none;border-radius:50%;border:0;background:#777;color:#fff;font-size:24px;line-height:1;padding:0}
+  .rb.wide{width:58px;border-radius:21px;font-size:13px}
+  .rb:disabled{opacity:.35}
+  #stage{flex:1;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center;margin:6px;overflow:hidden}
+  #drawSide{position:relative;background:#555;color:#fff;padding:8px 8px max(10px,env(safe-area-inset-bottom))}
+  .sizeRow{display:flex;align-items:center;gap:10px;font-size:13px;padding:0 4px}
+  .sizeRow input{flex:1;min-width:0;margin:0}
+  .sizeRow b{min-width:22px;text-align:right}
+  .toolbar{display:flex;gap:4px;margin:6px 0}
+  .toolbar .tb{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;color:#fff;padding:6px 0;font-size:11px;white-space:nowrap}
+  .toolbar .tb i{font-style:normal;font-size:23px;height:28px;display:flex;align-items:center}
+  .toolbar .tb.sel{background:var(--accent)}
+  #curSw{width:27px;height:27px;border-radius:50%;border:2px solid #fff;background:#000}
+  .pop{display:none;position:absolute;left:8px;right:8px;bottom:100%;margin:0 auto 8px;max-width:360px;background:#fff;color:var(--ink);border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,.35);padding:12px;text-align:center;z-index:20}
+  .pop.open{display:block}
+  #colors{display:grid;grid-template-columns:repeat(6,1fr);justify-items:center;gap:10px;margin:0}
+  /* ruang kanan disisakan untuk tombol chat */
+  #drawActions{margin-right:58px;min-height:48px}
+  #drawActions .btn{margin:0;min-height:48px}
+  #waitBox{display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:13px}
+  #waitBox .muted{color:#ddd}
+  #waitBox .btn{width:auto}
+  #drawNote{margin:0 58px 0 0;text-align:center;font-size:14px}
+  #drawNote:empty{display:none}
+  body:has(#draw.active) #chatBtn{width:48px;height:48px;right:8px;bottom:max(10px,env(safe-area-inset-bottom))}
   #wheelCv{width:200px;height:200px;touch-action:none;border-radius:50%;cursor:crosshair}
   #chatBtn{position:fixed;right:14px;bottom:14px;width:54px;height:54px;border-radius:50%;border:0;background:var(--ink);color:#fff;font-size:24px;z-index:40;box-shadow:0 4px 14px rgba(0,0,0,.3)}
   #chatBadge{position:absolute;top:-4px;right:-4px;background:#e74c3c;color:#fff;border-radius:99px;font-size:12px;min-width:20px;height:20px;line-height:20px;padding:0 5px}
@@ -102,22 +133,23 @@
 
     /* lobi: kode di kiri, daftar pemain di kanan */
     #lobby.active{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;align-items:start}
-    #lobby>:nth-child(2){grid-column:2;grid-row:1 / span 4}
+    #leaveBtn{grid-column:1 / -1;justify-self:start;margin:0}
+    #playersCard{grid-column:2;grid-row:2 / span 4}
 
-    /* menggambar: kanvas penuh tinggi layar di kiri, alat di kanan */
-    #draw.active{display:grid;
-      grid-template-columns:min(calc((100vh - 24px)*4/3),calc(100vw - 320px)) minmax(0,1fr);
-      grid-template-columns:min(calc((100dvh - 24px)*4/3),calc(100vw - 320px)) minmax(0,1fr);
-      grid-template-rows:auto 1fr;column-gap:12px;align-items:start}
-    #draw .bar{grid-column:2;grid-row:1;margin-bottom:4px}
-    #cvWrap{grid-column:1;grid-row:1 / span 2}
-    #drawSide{grid-column:2;grid-row:2;max-height:calc(100vh - 62px);max-height:calc(100dvh - 62px);overflow-y:auto;padding-bottom:4px}
-    #drawSide .tools{margin-top:5px}
-    /* tombol Selesai selalu terlihat di dasar panel, di kiri tombol chat */
-    #drawActions{position:sticky;bottom:0;margin:6px 54px 0 0 !important;padding:4px 0 2px;background:var(--bg)}
-    #drawActions .btn{margin-top:0;padding:10px 14px}
-    #waitBox{padding:8px !important;margin-top:4px !important}
-    #waitBox .btn{padding:8px 12px}
+    /* menggambar: kanvas di kiri, kontrol di kanan */
+    #draw.active{display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:auto minmax(0,1fr);padding:0}
+    #stage{grid-column:1;grid-row:1 / span 2}
+    #drawTop{grid-column:2;grid-row:1}
+    #drawTop .bar{margin-bottom:4px}
+    .acts{gap:5px}
+    .rb{width:36px;height:36px;font-size:20px}
+    .rb.wide{width:50px}
+    #drawSide{grid-column:2;grid-row:2;align-self:stretch;display:flex;flex-direction:column;justify-content:flex-end;padding:6px}
+    .toolbar{display:grid;grid-template-columns:repeat(3,1fr);margin:4px 0}
+    .toolbar .tb{padding:2px 0}
+    .toolbar .tb i{font-size:19px;height:23px}
+    #curSw{width:21px;height:21px}
+    .pop{position:fixed;left:auto;right:326px;bottom:8px;width:300px;margin:0;max-height:calc(100dvh - 16px);overflow:auto}
 
     /* menilai: gambar di kiri, bintang di kanan */
     #rate.active{display:grid;
@@ -145,15 +177,6 @@
     #chatPanel{left:auto;right:0;top:0;bottom:0;max-width:none;width:min(340px,50vw);height:auto;margin:0;border-radius:16px 0 0 16px}
     #themeOverlay .big{font-size:34px}
     #themeOverlay .box{padding:16px 24px}
-  }
-  /* layar landscape yang sangat pendek: padatkan alat supaya Undo tetap terlihat */
-  @media (orientation:landscape) and (max-height:420px){
-    #drawSide .hint{display:none}
-    #drawSide .tb{padding:5px 8px;font-size:13px}
-    #drawSide .sw{width:24px;height:24px;border-width:2px}
-    #drawSide .tools{margin-top:4px;gap:4px}
-    #zoomLbl{min-width:38px !important}
-    #drawActions .btn{padding:8px 12px;font-size:15px}
   }
 </style>
 </head>
@@ -187,12 +210,13 @@
 </div>
 
 <div id="lobby" class="screen">
+  <button class="backBtn" id="leaveBtn">← Beranda</button>
   <div class="card center">
     <div class="muted">Kode room — bagikan ke teman</div>
     <div class="code" id="lobbyCode"></div>
     <div class="muted" id="lobbyMode" style="margin-top:6px;font-size:14px"></div>
   </div>
-  <div class="card">
+  <div class="card" id="playersCard">
     <h2>Pemain (<span id="pcount">0</span>)</h2>
     <div class="players" id="plist"></div>
   </div>
@@ -202,51 +226,54 @@
 </div>
 
 <div id="draw" class="screen">
-  <div class="bar">
-    <div><div class="muted" style="font-size:12px">TEMA</div><p class="theme" id="themeText"></p>
-      <div class="muted" id="duoInfo" style="display:none;font-size:13px"></div></div>
-    <div class="timer" id="timer">5:00</div>
-  </div>
-  <div id="cvWrap"><canvas id="cv" width="640" height="480"></canvas>
-    <!-- penanda pensil: posisi sentuhan pasangan (Mode Duo) -->
-    <div id="remoteCur"><span class="dot" id="rcDot"></span><span class="pen">✏️</span><span class="nm" id="rcName"></span></div>
-  </div>
-  <div id="drawSide">
-  <div class="tools" id="colors"></div>
-  <div id="wheelPanel">
-    <canvas id="wheelCv" width="200" height="200"></canvas>
-    <div style="margin-top:8px"><label class="muted" style="font-size:13px">Gelap ◀ ▶ Terang <input type="range" id="bright" min="0" max="100" value="100" style="width:55%;padding:0;margin:0 0 0 6px;vertical-align:middle"></label></div>
-    <div class="muted" style="font-size:13px;margin-top:6px">Warna terpilih: <span id="curSw" style="display:inline-block;width:22px;height:22px;border-radius:50%;vertical-align:middle;border:1px solid var(--line);background:#000"></span></div>
-  </div>
-  <div class="tools">
-    <button class="tb sel" id="penBtn">✏️ Pensil</button>
-    <button class="tb" id="fillBtn">🪣 Ember cat</button>
-    <button class="tb" id="eraseBtn">🧽 Hapus</button>
-    <button class="tb" id="panBtn">✋ Geser</button>
-    <button class="tb" id="wheelBtn">🎨 Roda warna</button>
-  </div>
-  <div class="tools">
-    <button class="tb" id="zoomOut">➖</button>
-    <span class="muted" id="zoomLbl" style="min-width:46px;text-align:center">100%</span>
-    <button class="tb" id="zoomIn">➕</button>
-    <button class="tb" id="zoomReset">🔍 Reset</button>
-    <label class="muted" style="font-size:13px">Tebal <input type="range" id="size" min="2" max="40" value="6" style="width:90px;padding:0;margin:0 0 0 4px;vertical-align:middle"></label>
-  </div>
-  <div class="tools">
-    <button class="tb" id="undoBtn">↩️ Undo</button>
-    <button class="tb" id="clearBtn">🗑️ Bersihkan</button>
-    <span class="muted hint" style="font-size:12px">Zoom: cubit 2 jari atau tombol ➕➖</span>
-  </div>
-  <div id="drawActions" style="margin-top:10px">
-    <button class="btn" id="submitBtn">✅ Selesai — Kirim Gambar</button>
-    <div id="waitBox" class="card center" style="display:none;margin-top:10px">
-      <b>Gambarmu sudah terkirim ✅</b>
-      <div class="muted" style="margin:4px 0">Menunggu pemain lain… (<span id="readyCount">0/0</span> selesai)</div>
-      <div class="muted" style="font-size:13px">Game lanjut otomatis begitu semua selesai atau waktu habis.</div>
-      <button class="btn alt" id="editBtn">✏️ Edit lagi</button>
+  <!-- atas: tema + waktu, lalu undo / redo -->
+  <div id="drawTop">
+    <div class="bar">
+      <div><div class="muted" style="font-size:11px">TEMA</div><p class="theme" id="themeText"></p>
+        <div class="muted" id="duoInfo" style="display:none;font-size:12px"></div></div>
+      <div class="timer" id="timer">5:00</div>
+    </div>
+    <div class="acts">
+      <button class="rb" id="undoBtn" aria-label="Undo" title="Undo">↶</button>
+      <button class="rb" id="redoBtn" aria-label="Redo" title="Redo">↷</button>
+      <button class="rb" id="clearBtn" aria-label="Bersihkan" title="Bersihkan">🗑️</button>
+      <span class="sp"></span>
+      <button class="rb" id="zoomOut" aria-label="Perkecil">−</button>
+      <button class="rb wide" id="zoomReset" aria-label="Reset zoom"><span id="zoomLbl">100%</span></button>
+      <button class="rb" id="zoomIn" aria-label="Perbesar">+</button>
     </div>
   </div>
-  <p class="muted center" id="drawNote"></p>
+  <!-- tengah: kanvas -->
+  <div id="stage">
+    <div id="cvWrap"><canvas id="cv" width="640" height="480"></canvas>
+      <!-- penanda pensil: posisi sentuhan pasangan (Mode Duo) -->
+      <div id="remoteCur"><span class="dot" id="rcDot"></span><span class="pen">✏️</span><span class="nm" id="rcName"></span></div>
+    </div>
+  </div>
+  <!-- bawah: ukuran, alat, tombol Selesai -->
+  <div id="drawSide">
+    <div class="pop" id="colorPanel"><div class="tools" id="colors"></div></div>
+    <div class="pop" id="wheelPanel">
+      <canvas id="wheelCv" width="200" height="200"></canvas>
+      <div style="margin-top:8px"><label class="muted" style="font-size:13px">Gelap ◀ ▶ Terang <input type="range" id="bright" min="0" max="100" value="100" style="width:55%;padding:0;margin:0 0 0 6px;vertical-align:middle"></label></div>
+    </div>
+    <label class="sizeRow">Tebal <input type="range" id="size" min="2" max="40" value="6"><b id="sizeLbl">6</b></label>
+    <div class="toolbar">
+      <button class="tb sel" id="penBtn"><i>🖌️</i>Kuas</button>
+      <button class="tb" id="eraseBtn"><i>🧽</i>Hapus</button>
+      <button class="tb" id="fillBtn"><i>🪣</i>Ember cat</button>
+      <button class="tb" id="colorBtn"><i><span id="curSw"></span></i>Warna</button>
+      <button class="tb" id="wheelBtn"><i>🎨</i>Roda warna</button>
+      <button class="tb" id="panBtn"><i>✋</i>Geser</button>
+    </div>
+    <div id="drawActions">
+      <button class="btn" id="submitBtn">✅ Selesai — Kirim Gambar</button>
+      <div id="waitBox" style="display:none">
+        <div><b>Terkirim ✅</b><div class="muted">Menunggu… (<span id="readyCount">0/0</span> selesai)</div></div>
+        <button class="btn alt" id="editBtn">✏️ Edit lagi</button>
+      </div>
+    </div>
+    <p id="drawNote"></p>
   </div>
 </div>
 
@@ -601,14 +628,17 @@ function hOnConnection(conn) {
       H.players.set(conn.peer, { id: conn.peer, name: String(m.name || 'Pemain').slice(0, 16), conn, connected: true });
       hPush();
       hSend(H.players.get(conn.peer), { type: 'chatlog', msgs: H.chat });
-    } else hAction(conn.peer, m);
+    } else if (m && m.t === 'leave') { hDrop(conn.peer); conn.close(); }
+    else hAction(conn.peer, m);
   });
-  conn.on('close', () => {
-    const p = H.players.get(conn.peer); if (!p) return;
-    if (H.phase === 'lobby') H.players.delete(conn.peer); else p.connected = false;
-    hPush(); hMaybeFinishCollecting(); hMaybeAllReady(); hMaybeAllVoted();
-    if (H.phase === 'picking' && H.picker === conn.peer) hFinishPick(null);   // pemain terpilih keluar -> tema acak
-  });
+  conn.on('close', () => hDrop(conn.peer));
+}
+// pemain keluar (tombol Beranda atau koneksi terputus)
+function hDrop(id) {
+  const p = H.players.get(id); if (!p) return;
+  if (H.phase === 'lobby') H.players.delete(id); else p.connected = false;
+  hPush(); hMaybeFinishCollecting(); hMaybeAllReady(); hMaybeAllVoted();
+  if (H.phase === 'picking' && H.picker === id) hFinishPick(null);   // pemain terpilih keluar -> tema acak
 }
 
 // ====================== KONEKSI ======================
@@ -652,7 +682,7 @@ function joinRoom(name, code) {
       conn.send({ t: 'hello', name });
     });
     conn.on('data', m => onMsg(m));
-    conn.on('close', () => { if (done && S) { alert('Koneksi ke host terputus'); location.reload(); } });
+    conn.on('close', () => { if (done && S && !leaving) { alert('Koneksi ke host terputus'); location.reload(); } });
   });
 }
 
@@ -665,6 +695,17 @@ $('joinBtn').onclick = () => {
   $('joinErr').textContent = 'Menghubungkan…';
   const code = $('roomCode').value.trim().toUpperCase();
   code ? joinRoom(myName, code) : createRoom(myName);
+};
+
+// keluar dari lobi ke beranda; muat ulang halaman supaya semua state & koneksi bersih
+let leaving = false;
+$('leaveBtn').onclick = () => {
+  if (leaving) return;
+  if (!confirm(isHost ? 'Kembali ke beranda? Room akan ditutup dan semua pemain dikeluarkan.' : 'Keluar dari room dan kembali ke beranda?')) return;
+  leaving = true;
+  if (isHost) H.players.forEach(p => { if (p.id !== 'host') hSend(p, { type: 'fatal', msg: 'Host menutup room' }); });
+  else act({ t: 'leave' });
+  setTimeout(() => { try { peer.destroy(); } catch (_) {} location.reload(); }, 300);   // jeda agar pesan sempat terkirim
 };
 
 // aksi pemain ke host
@@ -793,7 +834,7 @@ $('startBtn').onclick = () => { $('lobbyErr').textContent = ''; act({ t: 'start'
 // ---------- Menggambar ----------
 const cv = $('cv'), ctx = cv.getContext('2d');
 const COLORS = ['#000000', '#ffffff', '#e74c3c', '#ff9f1c', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db', '#6c5ce7', '#e84393', '#8b5a2b', '#95a5a6'];
-let color = '#000000', tool = 'pen', drawing = false, last = null, undoStack = [], myReady = false;
+let color = '#000000', tool = 'pen', drawing = false, last = null, undoStack = [], redoStack = [], redoBackup = [], myReady = false;
 const swatches = [];
 // pilih warna (dari palet atau roda warna); ember cat tetap aktif, hapus/geser kembali ke pensil
 function setColor(c, fromWheel) {
@@ -806,7 +847,7 @@ function setColor(c, fromWheel) {
 COLORS.forEach((c, i) => {
   const b = document.createElement('button');
   b.className = 'sw' + (i === 0 ? ' sel' : ''); b.style.background = c;
-  b.onclick = () => setColor(c, false);
+  b.onclick = () => { setColor(c, false); closePops(); };
   swatches.push({ el: b, c });
   $('colors').appendChild(b);
 });
@@ -816,12 +857,27 @@ $('fillBtn').onclick = () => { tool = 'fill'; sync(); };
 $('eraseBtn').onclick = () => { tool = 'erase'; sync(); };
 $('panBtn').onclick = () => { tool = 'pan'; sync(); };
 function blank() { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); }
-function snapshot() { undoStack.push(ctx.getImageData(0, 0, cv.width, cv.height)); if (undoStack.length > 15) undoStack.shift(); }
+const grab = () => ctx.getImageData(0, 0, cv.width, cv.height);
+// aksi baru menghapus riwayat redo (disimpan dulu, dipulihkan kalau coretan dibatalkan karena cubit zoom)
+function snapshot() { redoBackup = redoStack; redoStack = []; undoStack.push(grab()); if (undoStack.length > 15) undoStack.shift(); }
 $('undoBtn').onclick = () => {
   if (locked()) return;
   if (isDuo()) return duoUndo();          // duo: batalkan coretan milikmu sendiri
-  if (undoStack.length) ctx.putImageData(undoStack.pop(), 0, 0);
+  if (drawing || !undoStack.length) return;
+  redoStack.push(grab()); ctx.putImageData(undoStack.pop(), 0, 0);
 };
+$('redoBtn').onclick = () => {
+  if (locked() || drawing) return;
+  if (isDuo()) return duoRedoLast();
+  if (!redoStack.length) return;
+  undoStack.push(grab()); ctx.putImageData(redoStack.pop(), 0, 0);
+};
+// tombol undo/redo diredupkan kalau tidak ada yang bisa dibatalkan / diulang
+setInterval(() => {
+  if (!S || S.phase !== 'drawing') return;
+  $('undoBtn').disabled = isDuo() ? !duoOps.some(o => o.pid === myId) : !undoStack.length;
+  $('redoBtn').disabled = isDuo() ? !duoRedo.length : !redoStack.length;
+}, 200);
 $('clearBtn').onclick = () => { if (locked() || isDuo()) return; snapshot(); blank(); };
 function pos(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
 function stroke(a, b) {
@@ -835,7 +891,7 @@ const locked = () => timeUp() || myReady;
 // ---------- MODE DUO: 1 kanvas untuk 2 pemain ----------
 // Kanvas = putih + semua "operasi" (coretan / ember cat) dari kedua pemain, digambar berurutan.
 // Coretan sendiri langsung tampil; coretan pasangan masuk lewat host. Undo = hapus operasi milik sendiri lalu gambar ulang.
-let duoOps = [], duoById = new Map(), duoSeq = 0, duoCur = null, duoPend = [], duoFlushT = null;
+let duoOps = [], duoById = new Map(), duoSeq = 0, duoCur = null, duoPend = [], duoFlushT = null, duoRedo = [], duoRedoBackup = [];
 const isDuo = () => !!S && S.mode === 'duo';
 function duoPartner() {
   if (!isDuo() || !S.pairs) return null;
@@ -873,7 +929,7 @@ function duoInsert(op, seq) {            // op pasangan: masuk sebelum op sendir
 }
 function duoAck(id, seq) { const op = duoById.get(id); if (op && Number.isFinite(seq)) op.seq = seq; }
 function duoReset() {
-  duoOps = []; duoById = new Map(); duoCur = null; duoPend = []; duoDirty = false;
+  duoRedo = []; duoOps = []; duoById = new Map(); duoCur = null; duoPend = []; duoDirty = false;
   clearTimeout(duoFlushT); duoFlushT = null; clearTimeout(duoSettleT); hideRemoteCur();
 }
 
@@ -937,6 +993,7 @@ function duoFlush() {
 function duoBegin(e) {
   const q = pos(e), p = { x: r1(q.x), y: r1(q.y) };
   const op = { id: myId + ':' + (++duoSeq), pid: myId, type: 'stroke', c: tool === 'erase' ? '#ffffff' : color, s: +$('size').value, pts: [p] };
+  duoRedoBackup = duoRedo; duoRedo = [];
   duoAdd(op); duoCur = op; drawOp(op); drawing = true; last = p;
   act({ t: 'dstart', id: op.id, c: op.c, s: op.s, p: [p.x, p.y] });
 }
@@ -956,18 +1013,28 @@ function duoCancelStroke() {            // mis. jari kedua menyentuh (cubit zoom
   if (!duoCur) return;
   const id = duoCur.id; duoPend = []; clearTimeout(duoFlushT); duoFlushT = null;
   duoOps = duoOps.filter(o => o.id !== id); duoById.delete(id); duoCur = null; drawing = false;
-  duoReplay(); act({ t: 'dundo', id });
+  duoRedo = duoRedoBackup; duoReplay(); act({ t: 'dundo', id });
 }
 function duoFill(p) {
   const op = { id: myId + ':' + (++duoSeq), pid: myId, type: 'fill', x: Math.floor(p.x), y: Math.floor(p.y), c: color };
-  duoAdd(op); drawOp(op); act({ t: 'dfill', id: op.id, x: op.x, y: op.y, c: op.c });
+  duoRedo = []; duoAdd(op); drawOp(op); act({ t: 'dfill', id: op.id, x: op.x, y: op.y, c: op.c });
 }
 function duoUndo() {
   for (let i = duoOps.length - 1; i >= 0; i--) {
     if (duoOps[i].pid !== myId) continue;
     const op = duoOps.splice(i, 1)[0]; duoById.delete(op.id);
-    duoReplay(); act({ t: 'dundo', id: op.id }); return;
+    duoRedo.push(op); duoReplay(); act({ t: 'dundo', id: op.id }); return;
   }
+}
+function duoRedoLast() {                // kirim ulang sebagai operasi baru supaya pasangan ikut menerima
+  const old = duoRedo.pop(); if (!old) return;
+  const op = { ...old, id: myId + ':' + (++duoSeq), seq: undefined };
+  duoAdd(op); drawOp(op);
+  if (op.type === 'fill') return act({ t: 'dfill', id: op.id, x: op.x, y: op.y, c: op.c });
+  act({ t: 'dstart', id: op.id, c: op.c, s: op.s, p: [op.pts[0].x, op.pts[0].y] });
+  const pts = op.pts.slice(1).map(p => [p.x, p.y]);
+  for (let i = 0; i < pts.length; i += 300) act({ t: 'dpts', id: op.id, pts: pts.slice(i, i + 300) });
+  act({ t: 'dend', id: op.id });
 }
 
 // ---------- Zoom & geser ----------
@@ -995,7 +1062,8 @@ wrap.addEventListener('wheel', e => {
   const r = wrap.getBoundingClientRect();
   zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top);
 }, { passive: false });
-window.addEventListener('resize', applyView);
+new ResizeObserver(applyView).observe(wrap);
+$('size').oninput = e => { $('sizeLbl').textContent = e.target.value; };
 
 // ---------- Ember cat (flood fill) ----------
 function floodFill(sx, sy, hex) {
@@ -1037,7 +1105,7 @@ wrap.addEventListener('pointerdown', e => {
   if (ptrs.size >= 2) {
     if (drawing) {                       // batalkan coretan tak sengaja
       if (isDuo()) duoCancelStroke();
-      else { drawing = false; if (undoStack.length) ctx.putImageData(undoStack.pop(), 0, 0); }
+      else { drawing = false; if (undoStack.length) ctx.putImageData(undoStack.pop(), 0, 0); redoStack = redoBackup; }
     }
     fillCand = null; panning = false;
     const [a, b] = [...ptrs.values()];
@@ -1121,10 +1189,15 @@ wheel.addEventListener('pointerdown', e => { wheelDrag = true; wheel.setPointerC
 wheel.addEventListener('pointermove', e => { if (wheelDrag) pickWheel(e); });
 ['pointerup', 'pointercancel'].forEach(t => wheel.addEventListener(t, () => { wheelDrag = false; }));
 $('bright').oninput = e => { wVal = +e.target.value / 100; applyWheel(); };
+// panel palet & roda warna: hanya satu yang terbuka, tertutup saat kanvas disentuh
+function closePops() { $('colorPanel').classList.remove('open'); $('wheelPanel').classList.remove('open'); }
+function togglePop(id) { const open = !$(id).classList.contains('open'); closePops(); $(id).classList.toggle('open', open); }
+$('colorBtn').onclick = () => togglePop('colorPanel');
 $('wheelBtn').onclick = () => {
-  $('wheelPanel').classList.toggle('open');
+  togglePop('wheelPanel');
   if (!wheelInit) { wheelInit = true; drawWheel(); }
 };
+wrap.addEventListener('pointerdown', closePops);
 
 // tulisan tema di tengah layar selama 3 detik saat game dimulai
 let overlayTimer = null;
@@ -1140,7 +1213,7 @@ function renderDraw() {
   $('themeText').textContent = S.theme;
   if (curRound !== S.round) {
     curRound = S.round; submitted = false; myReady = false; curShow = null; undoStack = []; blank();
-    duoReset(); resetView(); showThemeOverlay(S.theme, S.themeBy);
+    redoStack = []; closePops(); duoReset(); resetView(); showThemeOverlay(S.theme, S.themeBy);
   }
   const duo = isDuo();
   $('duoInfo').style.display = duo ? '' : 'none';
