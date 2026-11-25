@@ -11,6 +11,23 @@
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
   .screen{display:none;max-width:760px;margin:0 auto;padding:16px 16px 84px}
   .screen.active{display:block}
+  /* beranda */
+  #home.active{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:16px}
+  .homeTitle{margin:0;font-size:clamp(34px,9vw,60px);text-align:center;line-height:1.15}
+  #menuBtn{position:fixed;top:12px;right:12px;width:48px;height:48px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:26px;line-height:1;z-index:60;display:none;color:var(--ink)}
+  #menuPanel{position:fixed;top:68px;right:12px;min-width:210px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:8px;z-index:60;display:none}
+  #menuPanel.open{display:block}
+  #menuPanel .mhead{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:6px 10px}
+  #menuPanel button{display:block;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:12px 10px;font-size:17px;color:var(--ink)}
+  #menuPanel button:active{background:#f0ebe3}
+  /* layar vote & tema dari player: konten di tengah layar */
+  #vote.active,#pick.active{display:flex;flex-direction:column;justify-content:center;min-height:100vh;min-height:100dvh}
+  #voteList{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
+  .voteOpt{position:relative;background:#fff;border:2px solid var(--line);border-radius:14px;padding:16px 14px;font-size:20px;font-weight:700;color:var(--ink);text-align:left;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .voteOpt.sel{border-color:var(--accent);background:#fff3ec}
+  .voteOpt .cnt{background:#f0ebe3;border-radius:99px;font-size:14px;min-width:28px;text-align:center;padding:3px 9px;font-weight:700}
+  .voteOpt.sel .cnt{background:var(--accent);color:#fff}
+  .backBtn{background:none;border:0;color:var(--muted);font-size:15px;padding:6px 0;margin-bottom:2px}
   h1{margin:8px 0 4px;font-size:28px}
   h2{margin:0 0 8px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
@@ -61,20 +78,99 @@
   .star{background:none;border:0;font-size:52px;line-height:1;color:#ddd;padding:2px}
   .star.on{color:#ffb400}
   .star:disabled{opacity:.4}
-  .rimg{width:100%;border:2px solid var(--ink);border-radius:10px;background:#fff;display:block}
+  .rimg{width:100%;aspect-ratio:4/3;object-fit:contain;border:2px solid var(--ink);border-radius:10px;background:#fff;display:block}
   .prog{height:8px;background:#eadfd2;border-radius:99px;overflow:hidden;margin:10px 0}
   .prog>i{display:block;height:100%;background:var(--accent);width:100%}
   .rank{display:flex;gap:12px;align-items:center}
   .rank img{width:120px;border-radius:8px;border:1px solid var(--line);background:#fff}
   .rank .pos{font-size:26px;font-weight:800;width:44px;text-align:center}
   .center{text-align:center}
+
+  /* ===== Tampilan landscape (HP diputar mendatar) ===== */
+  @media (orientation:landscape) and (max-height:600px){
+    .screen{max-width:none;padding:10px 12px}
+    #join{max-width:520px}
+    #results{max-width:900px}
+    h1{font-size:22px;margin:2px 0}
+    .tb{padding:6px 9px;font-size:14px}
+    .sw{width:28px;height:28px}
+    #wheelCv{width:150px;height:150px}
+
+    /* lobi: kode di kiri, daftar pemain di kanan */
+    #lobby.active{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;align-items:start}
+    #lobby>:nth-child(2){grid-column:2;grid-row:1 / span 4}
+
+    /* menggambar: kanvas penuh tinggi layar di kiri, alat di kanan */
+    #draw.active{display:grid;
+      grid-template-columns:min(calc((100vh - 24px)*4/3),calc(100vw - 320px)) minmax(0,1fr);
+      grid-template-columns:min(calc((100dvh - 24px)*4/3),calc(100vw - 320px)) minmax(0,1fr);
+      grid-template-rows:auto 1fr;column-gap:12px;align-items:start}
+    #draw .bar{grid-column:2;grid-row:1;margin-bottom:4px}
+    #cvWrap{grid-column:1;grid-row:1 / span 2}
+    #drawSide{grid-column:2;grid-row:2;max-height:calc(100vh - 62px);max-height:calc(100dvh - 62px);overflow-y:auto;padding-bottom:4px}
+    #drawSide .tools{margin-top:5px}
+    /* tombol Selesai selalu terlihat di dasar panel, di kiri tombol chat */
+    #drawActions{position:sticky;bottom:0;margin:6px 54px 0 0 !important;padding:4px 0 2px;background:var(--bg)}
+    #drawActions .btn{margin-top:0;padding:10px 14px}
+    #waitBox{padding:8px !important;margin-top:4px !important}
+    #waitBox .btn{padding:8px 12px}
+
+    /* menilai: gambar di kiri, bintang di kanan */
+    #rate.active{display:grid;
+      grid-template-columns:min(calc((100vh - 24px)*4/3),calc(100vw - 320px)) minmax(0,1fr);
+      grid-template-columns:min(calc((100dvh - 24px)*4/3),calc(100vw - 320px)) minmax(0,1fr);
+      grid-template-rows:auto auto auto 1fr;column-gap:12px;align-items:start}
+    #rate .bar{grid-column:2;grid-row:1}
+    #rate .prog{grid-column:2;grid-row:2}
+    #rate .stars{grid-column:2;grid-row:3;margin:6px 0}
+    #rate #rateMsg{grid-column:2;grid-row:4;margin:0}
+    #rate .rimg{grid-column:1;grid-row:1 / span 4}
+    .star{font-size:44px}
+
+    /* vote: 2x2 */
+    #voteList{grid-template-columns:1fr 1fr}
+    .voteOpt{padding:12px 12px;font-size:17px}
+    #vote h1,#pick h1{font-size:20px !important;margin:2px 0}
+    /* hasil: dua kolom */
+    #resList{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    #resList .card{margin-bottom:0}
+    .rank img{width:96px}
+
+    /* chat jadi panel di sisi kanan */
+    #chatBtn{width:44px;height:44px;font-size:20px;right:10px;bottom:10px}
+    #chatPanel{left:auto;right:0;top:0;bottom:0;max-width:none;width:min(340px,50vw);height:auto;margin:0;border-radius:16px 0 0 16px}
+    #themeOverlay .big{font-size:34px}
+    #themeOverlay .box{padding:16px 24px}
+  }
+  /* layar landscape yang sangat pendek: padatkan alat supaya Undo tetap terlihat */
+  @media (orientation:landscape) and (max-height:420px){
+    #drawSide .hint{display:none}
+    #drawSide .tb{padding:5px 8px;font-size:13px}
+    #drawSide .sw{width:24px;height:24px;border-width:2px}
+    #drawSide .tools{margin-top:4px;gap:4px}
+    #zoomLbl{min-width:38px !important}
+    #drawActions .btn{padding:8px 12px;font-size:15px}
+  }
 </style>
 </head>
 <body>
 
-<div id="join" class="screen active">
-  <h1>🎨 Gambar Bareng</h1>
-  <p class="muted">Gambar tema acak dalam 5 menit, lalu nilai gambar teman-temanmu.</p>
+<!-- BERANDA: judul di tengah layar + menu ☰ di pojok kanan atas -->
+<div id="home" class="screen active">
+  <h1 class="homeTitle">🎨 Gambar Bareng</h1>
+</div>
+<button id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
+<div id="menuPanel" role="menu">
+  <div class="mhead">Mode game</div>
+  <button id="menuClassic" role="menuitem">🎮 Classic Mode</button>
+  <button id="menuVote" role="menuitem">🗳️ Mode Vote Tema</button>
+  <button id="menuPlayer" role="menuitem">✍️ Mode Tema dari Player</button>
+</div>
+
+<div id="join" class="screen">
+  <button class="backBtn" id="backHome">← Beranda</button>
+  <h1 id="joinTitle">Classic Mode</h1>
+  <p class="muted" id="joinDesc">Gambar tema acak dalam 5 menit, lalu nilai gambar teman-temanmu.</p>
   <div class="card">
     <input id="name" placeholder="Nama kamu" maxlength="16" autocomplete="off">
     <input id="roomCode" placeholder="Kode room (kosongkan untuk membuat baru)" maxlength="4" autocapitalize="characters" autocomplete="off">
@@ -82,12 +178,14 @@
     <button class="btn" id="joinBtn">Masuk</button>
   </div>
   <p class="muted" style="font-size:13px">Yang membuat room adalah host: tab-nya harus tetap terbuka selama game berlangsung.</p>
+  <p class="muted" style="font-size:13px">Mode ini dipakai saat kamu <b>membuat room baru</b> (kode dikosongkan). Kalau kamu memasukkan kode room teman, mode mengikuti pilihan host.</p>
 </div>
 
 <div id="lobby" class="screen">
   <div class="card center">
     <div class="muted">Kode room — bagikan ke teman</div>
     <div class="code" id="lobbyCode"></div>
+    <div class="muted" id="lobbyMode" style="margin-top:6px;font-size:14px"></div>
   </div>
   <div class="card">
     <h2>Pemain (<span id="pcount">0</span>)</h2>
@@ -104,6 +202,7 @@
     <div class="timer" id="timer">5:00</div>
   </div>
   <div id="cvWrap"><canvas id="cv" width="640" height="480"></canvas></div>
+  <div id="drawSide">
   <div class="tools" id="colors"></div>
   <div id="wheelPanel">
     <canvas id="wheelCv" width="200" height="200"></canvas>
@@ -127,7 +226,7 @@
   <div class="tools">
     <button class="tb" id="undoBtn">↩️ Undo</button>
     <button class="tb" id="clearBtn">🗑️ Bersihkan</button>
-    <span class="muted" style="font-size:12px">Zoom: cubit 2 jari atau tombol ➕➖</span>
+    <span class="muted hint" style="font-size:12px">Zoom: cubit 2 jari atau tombol ➕➖</span>
   </div>
   <div id="drawActions" style="margin-top:10px">
     <button class="btn" id="submitBtn">✅ Selesai — Kirim Gambar</button>
@@ -139,6 +238,7 @@
     </div>
   </div>
   <p class="muted center" id="drawNote"></p>
+  </div>
 </div>
 
 <div id="rate" class="screen">
@@ -160,6 +260,31 @@
   <p class="muted center" id="againWait"></p>
 </div>
 
+<!-- MODE VOTE TEMA: 4 pilihan tema di tengah layar -->
+<div id="vote" class="screen">
+  <div class="center">
+    <div class="muted" style="letter-spacing:3px">VOTE TEMA</div>
+    <h1 style="font-size:26px">Pilih tema yang mau digambar</h1>
+    <div class="timer" id="voteTimer">0:15</div>
+  </div>
+  <div id="voteList"></div>
+  <p class="muted center" id="voteInfo"></p>
+</div>
+
+<!-- MODE TEMA DARI PLAYER: 1 pemain acak mengetik tema -->
+<div id="pick" class="screen">
+  <div class="center">
+    <div class="muted" style="letter-spacing:3px">TEMA DARI PEMAIN</div>
+    <h1 style="font-size:26px" id="pickTitle"></h1>
+    <div class="timer" id="pickTimer">0:30</div>
+    <div id="pickForm" class="card" style="display:none;margin-top:12px;text-align:left">
+      <input id="themeInput" maxlength="30" placeholder="Ketik tema (maks 30 huruf)" autocomplete="off">
+      <button class="btn" id="themeBtn">Gunakan tema ini</button>
+    </div>
+    <p class="muted" id="pickWait"></p>
+  </div>
+</div>
+
 <button id="chatBtn" style="display:none" aria-label="Chat">💬<span id="chatBadge" style="display:none">0</span></button>
 <div id="chatPanel">
   <div class="chead"><b>💬 Chat room</b><button id="chatClose" aria-label="Tutup">✕</button></div>
@@ -170,17 +295,45 @@
   </form>
 </div>
 
-<div id="themeOverlay"><div class="box"><div class="lbl">TEMA</div><div class="big" id="themeBig"></div></div></div>
+<div id="themeOverlay"><div class="box"><div class="lbl" id="themeLbl">TEMA</div><div class="big" id="themeBig"></div></div></div>
 
 <script>
 const $ = id => document.getElementById(id);
-const showScreen = id => document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+const showScreen = id => {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+  // tombol menu ☰ hanya tampil di beranda
+  $('menuBtn').style.display = id === 'home' ? 'block' : 'none';
+  if (id !== 'home') setMenu(false);
+};
+function setMenu(open) { $('menuPanel').classList.toggle('open', open); $('menuBtn').setAttribute('aria-expanded', open); }
+$('menuBtn').onclick = e => { e.stopPropagation(); setMenu(!$('menuPanel').classList.contains('open')); };
+document.addEventListener('click', e => { if (!$('menuPanel').contains(e.target)) setMenu(false); });
+let chosenMode = 'classic';
+function openJoin(mode) {
+  chosenMode = mode;
+  $('joinTitle').textContent = MODES[mode].name;
+  $('joinDesc').textContent = MODES[mode].desc;
+  $('joinErr').textContent = '';
+  showScreen('join');
+}
+$('menuClassic').onclick = () => openJoin('classic');
+$('menuVote').onclick = () => openJoin('vote');
+$('menuPlayer').onclick = () => openJoin('player');
+$('backHome').onclick = () => { $('joinErr').textContent = ''; showScreen('home'); };
+showScreen('home');
 
 // ====================== KONFIGURASI ======================
 const DRAW_SECONDS = 300;      // waktu menggambar (5 menit)
 const SHOW_MS = 5000;          // tampil 5 detik per gambar
 const COLLECT_GRACE_MS = 6000; // batas tunggu pengumpulan gambar
 const GRACE_MS = 1500;         // toleransi bintang yang telat karena jaringan
+const VOTE_SECONDS = 15;       // waktu voting tema
+const PICK_SECONDS = 30;       // waktu pemain terpilih mengetik tema
+const MODES = {
+  classic: { name: 'Classic Mode', desc: 'Tema dipilih acak oleh sistem, lalu semua menggambar 5 menit.' },
+  vote:    { name: 'Mode Vote Tema', desc: 'Sebelum mulai, 4 tema acak dimunculkan dan semua pemain memilih. Tema dengan suara terbanyak dipakai.' },
+  player:  { name: 'Mode Tema dari Player', desc: 'Sebelum mulai, sistem memilih 1 pemain acak yang mengetik tema untuk semua.' }
+};
 const MAX_PLAYERS = 12;
 const PREFIX = 'gbr-';
 const THEMES = [
@@ -210,7 +363,8 @@ const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAA
 
 // ====================== LOGIKA HOST ======================
 const H = { players: new Map(), phase: 'lobby', theme: null, endsAt: null, round: 0,
-  drawings: new Map(), ratings: new Map(), current: null, results: null, order: [], idx: 0, timer: null, ready: new Set(), chat: [] };
+  drawings: new Map(), ratings: new Map(), current: null, results: null, order: [], idx: 0, timer: null, ready: new Set(), chat: [],
+  mode: 'classic', options: [], votes: new Map(), picker: null, themeBy: null };
 
 function hSend(p, msg) {
   if (p.id === 'host') setTimeout(() => onMsg(msg), 0);
@@ -218,16 +372,62 @@ function hSend(p, msg) {
 }
 function hBroadcast(msg) { H.players.forEach(p => hSend(p, msg)); }
 function hState() {
+  const votes = {}; H.votes.forEach((v, k) => { votes[k] = v; });
   return { type: 'state', now: Date.now(), phase: H.phase, hostId: 'host', theme: H.theme, endsAt: H.endsAt, round: H.round,
+    mode: H.mode, options: H.phase === 'voting' ? H.options : null, votes: H.phase === 'voting' ? votes : null,
+    picker: H.phase === 'picking' ? H.picker : null, themeBy: H.themeBy,
     players: [...H.players.values()].map(p => ({ id: p.id, name: p.name, connected: p.connected, ready: H.ready.has(p.id) })),
     results: H.phase === 'results' ? H.results : null };
 }
 const hPush = () => hBroadcast(hState());
+const randTheme = () => THEMES[Math.floor(Math.random() * THEMES.length)];
+const connectedPlayers = () => [...H.players.values()].filter(p => p.connected);
 
+// Mulai permainan: classic langsung menggambar; mode lain melewati tahap pemilihan tema dulu
 function hStart() {
   clearTimeout(H.timer);
+  H.theme = null; H.themeBy = null; H.votes = new Map(); H.options = []; H.picker = null;
+  if (H.mode === 'vote') {
+    H.options = shuffle([...THEMES]).slice(0, 4);
+    H.phase = 'voting'; H.endsAt = Date.now() + VOTE_SECONDS * 1000;
+    hPush();
+    H.timer = setTimeout(hFinishVote, VOTE_SECONDS * 1000);
+  } else if (H.mode === 'player') {
+    const c = connectedPlayers();
+    H.picker = c[Math.floor(Math.random() * c.length)].id;
+    H.phase = 'picking'; H.endsAt = Date.now() + PICK_SECONDS * 1000;
+    hPush();
+    H.timer = setTimeout(() => hFinishPick(null), PICK_SECONDS * 1000);
+  } else hBeginDrawing(randTheme());
+}
+// hitung suara: tema terbanyak menang; seri / tanpa suara -> acak di antara yang teratas
+function hFinishVote() {
+  if (H.phase !== 'voting') return;
+  clearTimeout(H.timer);
+  const counts = H.options.map(() => 0);
+  H.votes.forEach((v, pid) => { const p = H.players.get(pid); if (p && p.connected && counts[v] !== undefined) counts[v]++; });
+  const max = Math.max(...counts);
+  const top = counts.map((c, i) => i).filter(i => counts[i] === max);
+  H.themeBy = null;
+  hBeginDrawing(H.options[top[Math.floor(Math.random() * top.length)]]);
+}
+function hMaybeAllVoted() {
+  if (H.phase !== 'voting') return;
+  const c = connectedPlayers();
+  if (c.length && c.every(p => H.votes.has(p.id))) hFinishVote();
+}
+// tema ketikan pemain; kosong / waktu habis / pemain keluar -> tema acak dari daftar
+function hFinishPick(text) {
+  if (H.phase !== 'picking') return;
+  clearTimeout(H.timer);
+  const clean = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 30).trim();
+  H.themeBy = clean ? (H.players.get(H.picker)?.name || null) : null;
+  hBeginDrawing(clean || randTheme());
+}
+function hBeginDrawing(theme) {
+  clearTimeout(H.timer);
   H.round++; H.phase = 'drawing';
-  H.theme = THEMES[Math.floor(Math.random() * THEMES.length)];
+  H.theme = theme;
   H.endsAt = Date.now() + DRAW_SECONDS * 1000;
   H.drawings = new Map(); H.ratings = new Map(); H.current = null; H.lastShow = null; H.results = null; H.ready = new Set();
   hPush();
@@ -285,6 +485,7 @@ function hFinish() {
 function hReset() {
   clearTimeout(H.timer);
   H.phase = 'lobby'; H.theme = null; H.endsAt = null; H.drawings = new Map(); H.ratings = new Map(); H.current = null; H.results = null; H.ready = new Set();
+  H.votes = new Map(); H.options = []; H.picker = null; H.themeBy = null;
   H.players.forEach((p, id) => { if (!p.connected) H.players.delete(id); });
   hPush();
 }
@@ -295,6 +496,14 @@ function hAction(pid, m) {
     if (H.phase !== 'lobby') return;
     if ([...H.players.values()].filter(x => x.connected).length < 2) return hSend(p, { type: 'notice', msg: 'Minimal 2 pemain' });
     hStart();
+  } else if (m.t === 'vote') {             // voting tema (boleh ganti pilihan selama waktu belum habis)
+    const i = Math.floor(+m.idx);
+    if (H.phase !== 'voting' || !(i >= 0 && i < H.options.length)) return;
+    H.votes.set(pid, i); hPush(); hMaybeAllVoted();
+  } else if (m.t === 'settheme') {         // hanya pemain terpilih yang boleh menentukan tema
+    if (H.phase !== 'picking' || pid !== H.picker) return;
+    if (!String(m.text || '').trim()) return;
+    hFinishPick(m.text);
   } else if (m.t === 'chat') {             // pesan chat: host menyebarkan ke semua pemain
     const text = String(m.text || '').trim().slice(0, 200), t = Date.now();
     if (!text || t - (p.lastChat || 0) < 400) return;   // kosong / terlalu cepat (anti-spam)
@@ -350,7 +559,8 @@ function hOnConnection(conn) {
   conn.on('close', () => {
     const p = H.players.get(conn.peer); if (!p) return;
     if (H.phase === 'lobby') H.players.delete(conn.peer); else p.connected = false;
-    hPush(); hMaybeFinishCollecting(); hMaybeAllReady();
+    hPush(); hMaybeFinishCollecting(); hMaybeAllReady(); hMaybeAllVoted();
+    if (H.phase === 'picking' && H.picker === conn.peer) hFinishPick(null);   // pemain terpilih keluar -> tema acak
   });
 }
 
@@ -359,6 +569,7 @@ function makeCode() { const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; return Array.from({ 
 const joinErr = t => { $('joinErr').textContent = t; $('joinBtn').disabled = false; };
 
 function createRoom(name, tries = 0) {
+  H.mode = chosenMode;
   const code = makeCode();
   const p = new Peer(PREFIX + code, PEER_OPTS);
   const to = setTimeout(() => {
@@ -448,8 +659,52 @@ $('chatForm').onsubmit = e => {
   act({ t: 'chat', text: v }); $('chatInput').value = '';
 };
 
+// ---------- Vote tema ----------
+function fmtTime(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function renderVote() {
+  showScreen('vote'); curRound = -1;
+  const list = $('voteList'); list.innerHTML = '';
+  const counts = S.options.map(() => 0);
+  Object.entries(S.votes || {}).forEach(([pid, v]) => { const p = S.players.find(x => x.id === pid); if (p && p.connected && counts[v] !== undefined) counts[v]++; });
+  const mine = (S.votes || {})[myId];
+  S.options.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.className = 'voteOpt' + (mine === i ? ' sel' : '');
+    const s = document.createElement('span'); s.textContent = t;
+    const c = document.createElement('span'); c.className = 'cnt'; c.textContent = counts[i];
+    b.append(s, c);
+    b.onclick = () => { S.votes = { ...(S.votes || {}), [myId]: i }; renderVote(); act({ t: 'vote', idx: i }); };
+    list.appendChild(b);
+  });
+  const voted = Object.keys(S.votes || {}).length, total = S.players.filter(p => p.connected).length;
+  $('voteInfo').textContent = (mine === undefined ? 'Ketuk salah satu tema untuk memilih. ' : 'Pilihanmu tersimpan, boleh diganti. ') + `(${voted}/${total} sudah memilih)`;
+}
+
+// ---------- Tema dari player ----------
+let pickInit = false;
+function renderPick() {
+  showScreen('pick'); curRound = -1;
+  const picker = S.players.find(p => p.id === S.picker);
+  const me = S.picker === myId;
+  $('pickTitle').textContent = me ? 'Kamu yang menentukan tema!' : (picker ? picker.name : 'Seorang pemain') + ' sedang mengetik tema…';
+  $('pickForm').style.display = me ? '' : 'none';
+  $('pickWait').textContent = me ? 'Tema langsung dipakai untuk semua pemain. Kalau waktu habis, tema acak dipakai.' : 'Tema akan muncul begitu selesai. Kalau waktu habis, tema acak dipakai.';
+  if (me && !pickInit) { pickInit = true; $('themeInput').value = ''; setTimeout(() => $('themeInput').focus(), 100); }
+}
+function sendTheme() { const v = $('themeInput').value.trim(); if (!v) return; $('themeBtn').disabled = true; act({ t: 'settheme', text: v }); }
+$('themeBtn').onclick = sendTheme;
+$('themeInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendTheme(); } });
+setInterval(() => {
+  if (!S) return;
+  if (S.phase === 'voting') $('voteTimer').textContent = fmtTime(S.endsAt - now());
+  else if (S.phase === 'picking') $('pickTimer').textContent = fmtTime(S.endsAt - now());
+}, 250);
+
 function render() {
+  if (S.phase !== 'picking') { pickInit = false; $('themeBtn').disabled = false; }
   if (S.phase === 'lobby') renderLobby();
+  else if (S.phase === 'voting') renderVote();
+  else if (S.phase === 'picking') renderPick();
   else if (S.phase === 'drawing' || S.phase === 'collecting') renderDraw();
   else if (S.phase === 'rating') {
     $('rateTheme').textContent = S.theme || ''; showScreen('rate');
@@ -466,6 +721,7 @@ function render() {
 function renderLobby() {
   showScreen('lobby'); curRound = -1;
   $('lobbyCode').textContent = isHost ? peer.id.slice(PREFIX.length) : $('roomCode').value.trim().toUpperCase();
+  $('lobbyMode').textContent = 'Mode: ' + (MODES[S.mode] ? MODES[S.mode].name : 'Classic Mode');
   $('pcount').textContent = S.players.length;
   $('plist').innerHTML = '';
   S.players.forEach(p => {
@@ -667,8 +923,9 @@ $('wheelBtn').onclick = () => {
 
 // tulisan tema di tengah layar selama 3 detik saat game dimulai
 let overlayTimer = null;
-function showThemeOverlay(text) {
+function showThemeOverlay(text, by) {
   $('themeBig').textContent = text;
+  $('themeLbl').textContent = by ? 'TEMA DARI ' + by.toUpperCase() : 'TEMA';
   const o = $('themeOverlay'); o.classList.add('show');
   clearTimeout(overlayTimer);
   overlayTimer = setTimeout(() => o.classList.remove('show'), 3000);
@@ -678,7 +935,7 @@ function renderDraw() {
   $('themeText').textContent = S.theme;
   if (curRound !== S.round) {
     curRound = S.round; submitted = false; myReady = false; curShow = null; undoStack = []; blank();
-    resetView(); showThemeOverlay(S.theme);
+    resetView(); showThemeOverlay(S.theme, S.themeBy);
   }
   $('drawActions').style.display = S.phase === 'drawing' ? '' : 'none';
   updateReadyUI();
