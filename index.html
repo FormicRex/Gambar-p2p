@@ -121,6 +121,29 @@
   .rank .pos{font-size:26px;font-weight:800;width:44px;text-align:center}
   .center{text-align:center}
 
+
+  /* ===== Teman & profil ===== */
+  #menuBtn.dot::after{content:"";position:absolute;top:6px;right:6px;width:12px;height:12px;border-radius:50%;background:#e74c3c;border:2px solid #fff}
+  #menuPanel .sep{height:1px;background:var(--line);margin:6px 4px}
+  #friends{max-width:520px}
+  #friends h2{font-size:17px;margin:0 0 8px}
+  .frRow{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line)}
+  .frRow:first-of-type{border-top:0}
+  .frRow .nm{flex:1;min-width:0}
+  .frRow .nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .frRow .nm small{color:var(--muted);font-size:12px}
+  .frRow .btn{width:auto;margin:0;padding:8px 12px;font-size:14px}
+  .frRow .ic{background:none;border:0;font-size:18px;padding:6px}
+  .dotS{width:10px;height:10px;border-radius:50%;background:#bbb;flex:none}
+  .dotS.on{background:#2ecc71}
+  .dotS.room{background:#ff6b35}
+  .myId{font-size:26px;font-weight:800;letter-spacing:3px;text-align:center;margin:4px 0}
+  .frMsg{font-size:14px;min-height:18px;margin:6px 0 0}
+  #bkText,#restoreText{width:100%;min-height:70px;font-size:12px;word-break:break-all;margin-top:6px}
+  .inline{display:flex;gap:8px}
+  .inline input{margin:0;flex:1;min-width:0}
+  .inline .btn{width:auto;margin:0}
+
   /* ===== Tampilan landscape (HP diputar mendatar) ===== */
   @media (orientation:landscape) and (max-height:600px){
     .screen{max-width:none;padding:10px 12px}
@@ -136,20 +159,27 @@
     #leaveBtn{grid-column:1 / -1;justify-self:start;margin:0}
     #playersCard{grid-column:2;grid-row:2 / span 4}
 
-    /* menggambar: kanvas di kiri, kontrol di kanan */
-    #draw.active{display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:auto minmax(0,1fr);padding:0}
-    #stage{grid-column:1;grid-row:1 / span 2}
-    #drawTop{grid-column:2;grid-row:1}
-    #drawTop .bar{margin-bottom:4px}
-    .acts{gap:5px}
+    /* menggambar: sama seperti portrait (fitur di atas, kanvas di tengah, alat di bawah), dipadatkan */
+    #drawTop{display:flex;align-items:center;gap:14px;padding:4px 12px}
+    #drawTop .bar{margin:0;flex:none;gap:14px;align-items:center}
+    #drawTop .bar .muted:first-child,#drawTop .bar .muted[style*="11px"]{display:none}
+    #drawTop .theme{font-size:17px}
+    #drawTop .timer{font-size:22px}
+    #duoInfo{font-size:11px !important}
+    #drawTop .acts{flex:1;gap:6px}
     .rb{width:36px;height:36px;font-size:20px}
-    .rb.wide{width:50px}
-    #drawSide{grid-column:2;grid-row:2;align-self:stretch;display:flex;flex-direction:column;justify-content:flex-end;padding:6px}
-    .toolbar{display:grid;grid-template-columns:repeat(3,1fr);margin:4px 0}
-    .toolbar .tb{padding:2px 0}
-    .toolbar .tb i{font-size:19px;height:23px}
+    .rb.wide{width:54px}
+    #stage{margin:4px}
+    #drawSide{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:2px 14px;padding:4px 10px max(6px,env(safe-area-inset-bottom))}
+    .toolbar{grid-column:1 / -1;margin:0}
+    .toolbar .tb{padding:2px 0;flex-direction:row;justify-content:center;gap:6px;font-size:12px}
+    .toolbar .tb i{font-size:19px;height:24px}
     #curSw{width:21px;height:21px}
-    .pop{position:fixed;left:auto;right:326px;bottom:8px;width:300px;margin:0;max-height:calc(100dvh - 16px);overflow:auto}
+    .sizeRow{grid-column:1}
+    #drawActions{grid-column:2;margin-right:56px;min-height:40px}
+    #drawActions .btn{min-height:40px;padding:6px 10px}
+    #drawNote{grid-column:1 / -1;margin:0}
+    #waitBox .muted{font-size:12px}
 
     /* menilai: gambar di kiri, bintang di kanan */
     #rate.active{display:grid;
@@ -193,6 +223,9 @@
   <button id="menuVote" role="menuitem">🗳️ Mode Vote Tema</button>
   <button id="menuPlayer" role="menuitem">✍️ Mode Tema dari Player</button>
   <button id="menuDuo" role="menuitem">👥 Mode Duo Drawing</button>
+  <div class="sep"></div>
+  <div class="mhead">Akun</div>
+  <button id="menuFriends" role="menuitem">🤝 Teman &amp; Profil <span id="reqBadge"></span></button>
 </div>
 
 <div id="join" class="screen">
@@ -207,6 +240,44 @@
   </div>
   <p class="muted" style="font-size:13px">Yang membuat room adalah host: tab-nya harus tetap terbuka selama game berlangsung.</p>
   <p class="muted" style="font-size:13px">Mode ini dipakai saat kamu <b>membuat room baru</b> (kode dikosongkan). Kalau kamu memasukkan kode room teman, mode mengikuti pilihan host.</p>
+</div>
+
+<div id="friends" class="screen">
+  <button class="backBtn" id="frBack">← Beranda</button>
+  <h1>Teman &amp; Profil</h1>
+  <div class="card">
+    <h2>Profil saya</h2>
+    <input id="frName" placeholder="Nama kamu" maxlength="16" autocomplete="off">
+    <div class="muted" style="font-size:13px;margin-top:8px">ID kamu — kasih ke teman supaya bisa menambahkanmu:</div>
+    <div class="myId" id="myUid"></div>
+    <button class="btn alt" id="copyUid">📋 Salin ID</button>
+    <div class="muted frMsg" id="presState"></div>
+  </div>
+  <div class="card" id="reqCard" style="display:none">
+    <h2>Permintaan pertemanan</h2>
+    <div id="reqList"></div>
+  </div>
+  <div class="card">
+    <h2>Tambah teman</h2>
+    <div class="inline"><input id="frAddId" placeholder="ID teman (6 karakter)" maxlength="8" autocapitalize="characters" autocomplete="off"><button class="btn" id="frAddBtn">Kirim</button></div>
+    <div class="muted" style="font-size:12px;margin-top:6px">Temanmu harus sedang membuka game ini supaya permintaan sampai.</div>
+  </div>
+  <div class="card">
+    <h2>Teman (<span id="frCount">0</span>)</h2>
+    <div id="frList"></div>
+    <button class="btn alt" id="frRefresh">🔄 Cek status</button>
+    <div class="frMsg" id="frErr"></div>
+  </div>
+  <div class="card">
+    <h2>Cadangan akun</h2>
+    <div class="muted" style="font-size:13px">Simpan kode ini kalau ganti HP atau membersihkan data browser. Jangan pakai ID yang sama di dua perangkat sekaligus.</div>
+    <button class="btn alt" id="bkMake">Buat kode cadangan</button>
+    <textarea id="bkText" readonly style="display:none"></textarea>
+    <button class="btn alt" id="bkCopy" style="display:none">📋 Salin kode</button>
+    <textarea id="restoreText" placeholder="Tempel kode cadangan di sini untuk memulihkan"></textarea>
+    <button class="btn alt" id="bkRestore">Pulihkan dari kode</button>
+    <div class="frMsg" id="bkMsg"></div>
+  </div>
 </div>
 
 <div id="lobby" class="screen">
@@ -340,6 +411,8 @@ const showScreen = id => {
   // tombol menu ☰ hanya tampil di beranda
   $('menuBtn').style.display = id === 'home' ? 'block' : 'none';
   if (id !== 'home') setMenu(false);
+  if (id === 'join') joinErrTarget = 'joinErr';
+  if (window.frReady) onScreen(id);
 };
 function setMenu(open) { $('menuPanel').classList.toggle('open', open); $('menuBtn').setAttribute('aria-expanded', open); }
 $('menuBtn').onclick = e => { e.stopPropagation(); setMenu(!$('menuPanel').classList.contains('open')); };
@@ -643,7 +716,8 @@ function hDrop(id) {
 
 // ====================== KONEKSI ======================
 function makeCode() { const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; return Array.from({ length: 4 }, () => L[Math.floor(Math.random() * L.length)]).join(''); }
-const joinErr = t => { $('joinErr').textContent = t; $('joinBtn').disabled = false; };
+let joinErrTarget = 'joinErr';
+const joinErr = t => { $(joinErrTarget).textContent = t; $('joinBtn').disabled = false; };
 
 function createRoom(name, tries = 0) {
   H.mode = chosenMode;
@@ -688,8 +762,10 @@ function joinRoom(name, code) {
 
 $('joinBtn').onclick = () => {
   $('joinErr').textContent = '';
+  joinErrTarget = 'joinErr';
   myName = $('name').value.trim();
   if (!myName) return joinErr('Nama wajib diisi');
+  prof.name = cleanName(myName); saveProf();
   if (typeof Peer === 'undefined') return joinErr('Pustaka PeerJS gagal dimuat. Cek internet.');
   $('joinBtn').disabled = true;
   $('joinErr').textContent = 'Menghubungkan…';
@@ -1323,6 +1399,227 @@ function renderResults() {
   $('againWait').textContent = isHost ? '' : 'Menunggu host untuk main lagi…';
 }
 $('againBtn').onclick = () => act({ t: 'reset' });
+
+// ====================== PROFIL, TEMAN & KEHADIRAN ======================
+// Data profil disimpan di penyimpanan browser HP (localStorage). Tanpa server:
+// tiap pemain punya "peer kehadiran" tetap (gbru-<ID>) untuk menerima permintaan teman dan ditanya status.
+const PROF_KEY = 'gbr-profile-v1';
+const UID_RE = /^[A-HJ-NP-Z2-9]{6}$/;
+const newUid = () => { const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return Array.from({ length: 6 }, () => L[Math.floor(Math.random() * L.length)]).join(''); };
+const cleanName = n => String(n || '').replace(/\s+/g, ' ').trim().slice(0, 16);
+function normProf(p) {
+  p = p && typeof p === 'object' ? p : {};
+  const list = a => (Array.isArray(a) ? a : []).filter(f => f && UID_RE.test(f.id)).map(f => ({ id: f.id, name: cleanName(f.name) || f.id }));
+  const uniq = a => a.filter((f, i) => a.findIndex(g => g.id === f.id) === i);
+  return { uid: UID_RE.test(p.uid) ? p.uid : newUid(), name: cleanName(p.name), friends: uniq(list(p.friends)), incoming: uniq(list(p.incoming)),
+           sent: (Array.isArray(p.sent) ? p.sent : []).filter(x => UID_RE.test(x)) };
+}
+let prof;
+try { prof = normProf(JSON.parse(localStorage.getItem(PROF_KEY))); } catch (_) { prof = normProf(null); }
+prof.friends = prof.friends.filter(f => f.id !== prof.uid);
+function saveProf() { try { localStorage.setItem(PROF_KEY, JSON.stringify(prof)); } catch (_) {} }
+saveProf();
+$('name').value = prof.name;
+$('frName').value = prof.name;
+$('myUid').textContent = prof.uid;
+
+let pres = null, presReady = false, presRetry = null, presErr = '';
+const presWait = new Map();   // uid -> Set(fungsi 'offline')
+const fstat = {};             // uid -> {s:'cek'|'off'|'on'|'room', code, mode, n}
+function setPresStatus() {
+  $('presState').textContent = presReady ? '🟢 Terhubung — temanmu bisa menemukanmu'
+    : presErr === 'dipakai' ? '🟠 ID ini sedang dipakai di perangkat/tab lain'
+    : typeof Peer === 'undefined' ? '🔴 Pustaka PeerJS gagal dimuat' : '⏳ Menghubungkan…';
+}
+function startPresence() {
+  if (typeof Peer === 'undefined' || pres) return;
+  const p = new Peer('gbru-' + prof.uid, PEER_OPTS); pres = p; presErr = '';
+  const retry = ms => { presReady = false; setPresStatus(); try { p.destroy(); } catch (_) {} if (pres === p) pres = null; clearTimeout(presRetry); presRetry = setTimeout(startPresence, ms); };
+  p.on('open', () => { presReady = true; presErr = ''; setPresStatus(); });
+  p.on('connection', c => c.on('data', m => onPresMsg(c, m)));
+  p.on('disconnected', () => { presReady = false; setPresStatus(); try { p.reconnect(); } catch (_) {} });
+  p.on('error', e => {
+    if (e.type === 'peer-unavailable') {
+      const m = /gbru-([A-HJ-NP-Z2-9]{6})/.exec(e.message || '');
+      if (m && presWait.has(m[1])) [...presWait.get(m[1])].forEach(f => f());
+      return;
+    }
+    if (e.type === 'unavailable-id') { presErr = 'dipakai'; retry(20000); return; }
+    retry(8000);
+  });
+  setPresStatus();
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (!pres) startPresence(); else if (pres.disconnected) { try { pres.reconnect(); } catch (_) {} }
+});
+
+function addFriend(uid, name) {
+  name = cleanName(name) || uid;
+  const f = prof.friends.find(x => x.id === uid);
+  if (f) f.name = name; else prof.friends.push({ id: uid, name });
+  prof.incoming = prof.incoming.filter(x => x.id !== uid);
+  prof.sent = prof.sent.filter(x => x !== uid);
+  saveProf(); renderFriends();
+}
+// pesan masuk ke peer kehadiranku
+function onPresMsg(c, m) {
+  if (!m || typeof m !== 'object') return;
+  const uid = String(m.uid || ''); if (!UID_RE.test(uid) || uid === prof.uid) return;
+  const name = cleanName(m.name) || uid;
+  const me = { uid: prof.uid, name: prof.name };
+  const fr = prof.friends.find(f => f.id === uid);
+  if (fr && m.t !== 'freq' && name !== fr.name) { fr.name = name; saveProf(); renderFriends(); }   // sinkron nama
+  if (m.t === 'where') {
+    const r = Object.assign({ t: 'room', code: null }, me);
+    if (fr && isHost && peer && typeof H !== 'undefined' && H.phase === 'lobby' && H.players.size < MAX_PLAYERS) {
+      r.code = peer.id.slice(PREFIX.length); r.mode = H.mode; r.n = H.players.size;
+    }
+    c.send(r);
+  } else if (m.t === 'freq') {
+    if (fr || prof.sent.includes(uid)) { addFriend(uid, name); c.send(Object.assign({ t: 'facc' }, me)); return; }   // sudah berteman / saling meminta
+    const q = prof.incoming.find(x => x.id === uid);
+    if (q) q.name = name; else prof.incoming.push({ id: uid, name });
+    saveProf(); renderFriends(); c.send(Object.assign({ t: 'ack' }, me));
+  } else if (m.t === 'facc') {
+    if (prof.sent.includes(uid)) addFriend(uid, name);
+    c.send(Object.assign({ t: 'ack' }, me));
+  }
+}
+// kirim pesan ke peer kehadiran teman dan tunggu balasan
+function presCall(uid, msg, timeout = 7000) {
+  return new Promise(res => {
+    if (!pres || !presReady) return res({ err: 'noservice' });
+    let done = false, c = null;
+    const fin = v => { if (done) return; done = true; clearTimeout(t); const s = presWait.get(uid); if (s) { s.delete(off); if (!s.size) presWait.delete(uid); } try { c && c.close(); } catch (_) {} res(v); };
+    const off = () => fin({ err: 'offline' });
+    const t = setTimeout(off, timeout);
+    if (!presWait.has(uid)) presWait.set(uid, new Set()); presWait.get(uid).add(off);
+    c = pres.connect('gbru-' + uid, { reliable: true });
+    c.on('open', () => c.send(Object.assign({ uid: prof.uid, name: prof.name }, msg)));
+    c.on('data', m => fin({ ok: m }));
+    c.on('error', off);
+  });
+}
+const frMsg = (t, id = 'frErr') => { $(id).textContent = t; };
+async function refreshStatus() {
+  if (!prof.friends.length) return;
+  prof.friends.forEach(f => { fstat[f.id] = { s: 'cek' }; });
+  renderFriends();
+  const todo = prof.friends.map(f => f.id);
+  const worker = async () => {
+    while (todo.length) {
+      const uid = todo.shift(); const r = await presCall(uid, { t: 'where' });
+      if (r.ok && r.ok.t === 'room') {
+        fstat[uid] = r.ok.code ? { s: 'room', code: String(r.ok.code).toUpperCase().slice(0, 4), mode: r.ok.mode, n: r.ok.n } : { s: 'on' };
+        const f = prof.friends.find(x => x.id === uid), nn = cleanName(r.ok.name);
+        if (f && nn && nn !== f.name) { f.name = nn; saveProf(); }
+      } else fstat[uid] = { s: 'off', err: r.err };
+      renderFriends();
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+}
+function joinFriend(f) {
+  const st = fstat[f.id]; if (!st || st.s !== 'room') return;
+  if (!prof.name) return frMsg('Isi namamu dulu di bagian Profil.');
+  if (typeof Peer === 'undefined') return frMsg('Pustaka PeerJS gagal dimuat. Cek internet.');
+  myName = prof.name; $('roomCode').value = st.code; joinErrTarget = 'frErr';
+  $('joinBtn').disabled = true; frMsg('Menghubungkan ke room ' + f.name + '…');
+  joinRoom(myName, st.code);
+}
+async function sendReq() {
+  const uid = ($('frAddId').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!UID_RE.test(uid)) return frMsg('ID harus 6 karakter (huruf/angka).');
+  if (uid === prof.uid) return frMsg('Itu ID kamu sendiri 😄');
+  if (prof.friends.some(f => f.id === uid)) return frMsg('Kalian sudah berteman.');
+  if (!prof.name) return frMsg('Isi namamu dulu di bagian Profil.');
+  frMsg('Mengirim permintaan…'); $('frAddBtn').disabled = true;
+  const r = await presCall(uid, { t: 'freq' });
+  $('frAddBtn').disabled = false;
+  if (r.err === 'noservice') return frMsg('Belum terhubung ke layanan. Tunggu sebentar lalu coba lagi.');
+  if (r.err) return frMsg('Temanmu sedang offline atau ID salah. Minta dia membuka game ini, lalu coba lagi.');
+  if (r.ok.t === 'facc') { addFriend(uid, r.ok.name); frMsg('Kalian sekarang berteman ✅'); }
+  else { if (!prof.sent.includes(uid)) prof.sent.push(uid); saveProf(); frMsg('Permintaan terkirim. Menunggu ' + (cleanName(r.ok.name) || 'temanmu') + ' menyetujui.'); }
+  $('frAddId').value = '';
+}
+async function acceptReq(q) {
+  frMsg('Menerima…');
+  const r = await presCall(q.id, { t: 'facc' });
+  if (r.err) return frMsg(q.name + ' sedang offline. Coba terima lagi saat dia online.');
+  addFriend(q.id, q.name); frMsg('Kamu berteman dengan ' + q.name + ' ✅'); refreshStatus();
+}
+function rejectReq(q) { prof.incoming = prof.incoming.filter(x => x.id !== q.id); saveProf(); renderFriends(); }
+function removeFriend(f) {
+  if (!confirm('Hapus ' + f.name + ' dari daftar teman?')) return;
+  prof.friends = prof.friends.filter(x => x.id !== f.id); delete fstat[f.id]; saveProf(); renderFriends();
+}
+function renderFriends() {
+  const n = prof.incoming.length;
+  $('menuBtn').classList.toggle('dot', n > 0);
+  $('reqBadge').textContent = n ? '(' + n + ')' : '';
+  if (!$('friends').classList.contains('active')) return;
+  $('frCount').textContent = prof.friends.length;
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  // permintaan masuk
+  $('reqCard').style.display = n ? '' : 'none';
+  const rl = $('reqList'); rl.textContent = '';
+  prof.incoming.forEach(q => {
+    const row = mk('div', 'frRow'), nm = mk('div', 'nm'); nm.append(mk('b', '', q.name), mk('small', '', 'ID ' + q.id));
+    const ok = mk('button', 'btn', 'Terima'); ok.onclick = () => acceptReq(q);
+    const no = mk('button', 'ic', '✖'); no.setAttribute('aria-label', 'Tolak'); no.onclick = () => rejectReq(q);
+    row.append(nm, ok, no); rl.append(row);
+  });
+  // daftar teman
+  const fl = $('frList'); fl.textContent = '';
+  if (!prof.friends.length) fl.append(mk('p', 'muted', 'Belum ada teman. Tambahkan lewat ID-nya.'));
+  prof.friends.forEach(f => {
+    const st = fstat[f.id] || { s: '' };
+    const row = mk('div', 'frRow'), nm = mk('div', 'nm');
+    const label = st.s === 'cek' ? 'Memeriksa…' : st.s === 'room' ? 'Membuat room · ' + ((MODES[st.mode] || {}).name || 'Classic') + ' · ' + st.n + '/' + MAX_PLAYERS
+      : st.s === 'on' ? 'Online' : st.s === 'off' ? 'Offline' : 'Tekan "Cek status"';
+    nm.append(mk('b', '', f.name), mk('small', '', label));
+    row.append(mk('span', 'dotS ' + (st.s === 'room' ? 'room' : st.s === 'on' ? 'on' : '')), nm);
+    if (st.s === 'room') { const g = mk('button', 'btn', 'Gabung'); g.onclick = () => joinFriend(f); row.append(g); }
+    const rm = mk('button', 'ic', '🗑️'); rm.setAttribute('aria-label', 'Hapus teman'); rm.onclick = () => removeFriend(f);
+    row.append(rm); fl.append(row);
+  });
+}
+let frTimer = null;
+function onScreen(id) {
+  clearInterval(frTimer);
+  if (id === 'friends') {
+    $('frName').value = prof.name; $('myUid').textContent = prof.uid; frMsg(''); frMsg('', 'bkMsg'); setPresStatus(); renderFriends();
+    refreshStatus(); frTimer = setInterval(refreshStatus, 20000);
+  } else if (id === 'home') renderFriends();
+}
+$('menuFriends').onclick = () => showScreen('friends');
+$('frBack').onclick = () => showScreen('home');
+$('frRefresh').onclick = refreshStatus;
+$('frAddBtn').onclick = sendReq;
+$('frAddId').addEventListener('keydown', e => { if (e.key === 'Enter') sendReq(); });
+$('frName').addEventListener('input', () => { prof.name = cleanName($('frName').value); saveProf(); $('name').value = prof.name; });
+$('copyUid').onclick = async () => { try { await navigator.clipboard.writeText(prof.uid); $('copyUid').textContent = '✅ Tersalin'; } catch (_) { $('copyUid').textContent = 'Salin manual: ' + prof.uid; } setTimeout(() => $('copyUid').textContent = '📋 Salin ID', 2000); };
+// cadangan akun
+const b64enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+$('bkMake').onclick = () => {
+  const t = 'GBR1.' + b64enc({ uid: prof.uid, name: prof.name, friends: prof.friends });
+  $('bkText').value = t; $('bkText').style.display = 'block'; $('bkCopy').style.display = 'block'; $('bkText').select();
+};
+$('bkCopy').onclick = async () => { try { await navigator.clipboard.writeText($('bkText').value); frMsg('Kode tersalin ✅', 'bkMsg'); } catch (_) { frMsg('Salin manual dari kotak di atas.', 'bkMsg'); } };
+$('bkRestore').onclick = () => {
+  try {
+    const s = $('restoreText').value.trim();
+    if (!s.startsWith('GBR1.')) throw 0;
+    const o = JSON.parse(decodeURIComponent(escape(atob(s.slice(5)))));
+    if (!o || !UID_RE.test(o.uid)) throw 0;
+    if (!confirm('Profil dan teman di HP ini akan diganti dengan data cadangan (ID ' + o.uid + '). Lanjut?')) return;
+    prof = normProf(o); saveProf(); location.reload();
+  } catch (_) { frMsg('Kode cadangan tidak valid.', 'bkMsg'); }
+};
+window.frReady = true;
+startPresence();
+renderFriends();
 </script>
 </body>
 </html>
