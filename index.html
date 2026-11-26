@@ -123,6 +123,15 @@
 
 
   /* ===== Teman & profil ===== */
+  #pubBox{position:fixed;left:16px;right:16px;top:calc(50% + 54px);max-width:520px;margin:0 auto;max-height:calc(50% - 76px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+  #pubBox .pubHead{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;padding-bottom:4px}
+  #pubBox .frRow{padding:7px 0}
+  #pubBox .empty{color:var(--muted);font-size:14px;padding:4px 0 2px}
+  .lbl{display:block;font-size:14px;margin:10px 2px 4px;color:var(--ink)}
+  .lbl .muted{font-size:13px}
+  .chkRow{display:flex;align-items:flex-start;gap:10px;margin:12px 2px 4px;font-size:15px;line-height:1.35}
+  .chkRow input{width:22px;height:22px;margin:1px 0 0;flex:none;accent-color:var(--accent)}
+  .chkRow small{display:block;color:var(--muted);font-size:12.5px}
   #quickBtn{position:fixed;top:68px;right:12px;width:48px;height:48px;border-radius:12px;border:1px solid var(--line);background:#fff;z-index:60;display:none;padding:0;align-items:center;justify-content:center}
   #quickBtn svg{width:28px;height:28px;fill:#111;display:block;margin:auto}
   #quickBadge{position:absolute;top:-6px;left:-6px;min-width:20px;height:20px;line-height:20px;padding:0 5px;border-radius:99px;background:#2ecc71;color:#fff;font-size:12px;font-weight:700;border:2px solid #fff;box-sizing:content-box}
@@ -224,6 +233,11 @@
 <!-- BERANDA: judul di tengah layar + menu ☰ di pojok kanan atas -->
 <div id="home" class="screen active">
   <h1 class="homeTitle">🎨 Gambar Bareng</h1>
+  <div id="pubBox" aria-live="polite">
+    <div class="pubHead"><span>🌐 Room publik</span><span id="pubCount"></span></div>
+    <div id="pubList"></div>
+    <div class="frMsg" id="pubMsg"></div>
+  </div>
 </div>
 <button id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
 <button id="quickBtn" aria-label="Teman online" aria-expanded="false">
@@ -253,7 +267,9 @@
   <p class="muted" id="joinDesc">Gambar tema acak dalam 5 menit, lalu nilai gambar teman-temanmu.</p>
   <div class="card">
     <input id="name" placeholder="Nama kamu" maxlength="16" autocomplete="off">
-    <input id="roomCode" placeholder="Kode room (kosongkan untuk membuat baru)" maxlength="4" autocapitalize="characters" autocomplete="off">
+    <label class="lbl" for="roomCode">Kode room <span class="muted">(kosongkan untuk membuat room baru)</span></label>
+    <input id="roomCode" placeholder="masukkan kode" maxlength="4" autocapitalize="characters" autocomplete="off">
+    <label class="chkRow" id="pubChkRow"><input type="checkbox" id="pubChk"><span>Jadikan room publik<small>Tampil di beranda semua pemain, siapa saja bisa join tanpa kode.</small></span></label>
     <div class="err" id="joinErr"></div>
     <button class="btn" id="joinBtn">Masuk</button>
   </div>
@@ -310,6 +326,7 @@
     <h2>Pemain (<span id="pcount">0</span>)</h2>
     <div class="players" id="plist"></div>
   </div>
+  <label class="chkRow card" id="pubLobbyRow" style="display:none"><input type="checkbox" id="pubLobby"><span>Room publik<small>Tampil di beranda semua pemain, siapa saja bisa join tanpa kode (selama masih di lobi).</small></span></label>
   <div class="err center" id="lobbyErr"></div>
   <button class="btn" id="startBtn">Mulai Game</button>
   <p class="muted center" id="waitMsg"></p>
@@ -451,6 +468,7 @@ $('menuClassic').onclick = () => openJoin('classic');
 $('menuVote').onclick = () => openJoin('vote');
 $('menuPlayer').onclick = () => openJoin('player');
 $('menuDuo').onclick = () => openJoin('duo');
+$('roomCode').addEventListener('input', () => { $('pubChkRow').style.display = $('roomCode').value.trim() ? 'none' : ''; });
 $('backHome').onclick = () => { $('joinErr').textContent = ''; showScreen('home'); };
 showScreen('home');
 
@@ -497,7 +515,7 @@ const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAA
 // ====================== LOGIKA HOST ======================
 const H = { players: new Map(), phase: 'lobby', theme: null, endsAt: null, round: 0,
   drawings: new Map(), ratings: new Map(), current: null, results: null, order: [], idx: 0, timer: null, ready: new Set(), chat: [],
-  mode: 'classic', options: [], votes: new Map(), picker: null, themeBy: null,
+  mode: 'classic', isPublic: false, options: [], votes: new Map(), picker: null, themeBy: null,
   pairs: [], pairOf: new Map(), leadOf: new Map(), duoSeq: 0 };
 
 function hSend(p, msg) {
@@ -508,13 +526,13 @@ function hBroadcast(msg) { H.players.forEach(p => hSend(p, msg)); }
 function hState() {
   const votes = {}; H.votes.forEach((v, k) => { votes[k] = v; });
   return { type: 'state', now: Date.now(), phase: H.phase, hostId: 'host', theme: H.theme, endsAt: H.endsAt, round: H.round,
-    mode: H.mode, options: H.phase === 'voting' ? H.options : null, votes: H.phase === 'voting' ? votes : null,
+    mode: H.mode, isPublic: !!H.isPublic, options: H.phase === 'voting' ? H.options : null, votes: H.phase === 'voting' ? votes : null,
     picker: H.phase === 'picking' ? H.picker : null, themeBy: H.themeBy,
     pairs: H.mode === 'duo' ? H.pairs : null,
     players: [...H.players.values()].map(p => ({ id: p.id, name: p.name, connected: p.connected, ready: H.ready.has(p.id) })),
     results: H.phase === 'results' ? H.results : null };
 }
-const hPush = () => hBroadcast(hState());
+const hPush = () => { hBroadcast(hState()); if (window.frReady) pubSync(); };
 const randTheme = () => THEMES[Math.floor(Math.random() * THEMES.length)];
 const connectedPlayers = () => [...H.players.values()].filter(p => p.connected);
 
@@ -742,7 +760,7 @@ let joinErrTarget = 'joinErr';
 const joinErr = t => { $(joinErrTarget).textContent = t; $('joinBtn').disabled = false; };
 
 function createRoom(name, tries = 0) {
-  H.mode = chosenMode;
+  H.mode = chosenMode; H.isPublic = $('pubChk').checked;
   const code = makeCode();
   const p = new Peer(PREFIX + code, PEER_OPTS);
   const to = setTimeout(() => {
@@ -909,7 +927,8 @@ function render() {
 function renderLobby() {
   showScreen('lobby'); curRound = -1;
   $('lobbyCode').textContent = isHost ? peer.id.slice(PREFIX.length) : $('roomCode').value.trim().toUpperCase();
-  $('lobbyMode').textContent = 'Mode: ' + (MODES[S.mode] ? MODES[S.mode].name : 'Classic Mode');
+  $('lobbyMode').textContent = 'Mode: ' + (MODES[S.mode] ? MODES[S.mode].name : 'Classic Mode') + (S.isPublic ? ' · 🌐 Publik' : '');
+  $('pubLobbyRow').style.display = isHost ? '' : 'none'; $('pubLobby').checked = !!S.isPublic;
   $('pcount').textContent = S.players.length;
   $('plist').innerHTML = '';
   S.players.forEach(p => {
@@ -1457,11 +1476,12 @@ function startPresence() {
   if (typeof Peer === 'undefined' || pres) return;
   const p = new Peer('gbru-' + prof.uid, PEER_OPTS); pres = p; presErr = '';
   const retry = ms => { presReady = false; setPresStatus(); try { p.destroy(); } catch (_) {} if (pres === p) pres = null; clearTimeout(presRetry); presRetry = setTimeout(startPresence, ms); };
-  p.on('open', () => { presReady = true; presErr = ''; setPresStatus(); if ($('home').classList.contains('active')) { refreshStatus(true); clearInterval(frTimer); frTimer = setInterval(() => refreshStatus(true), 20000); } });
+  p.on('open', () => { presReady = true; presErr = ''; setPresStatus(); dirEnsure(); if ($('home').classList.contains('active')) { refreshStatus(true); clearInterval(frTimer); frTimer = setInterval(() => refreshStatus(true), 20000); } });
   p.on('connection', c => c.on('data', m => onPresMsg(c, m)));
   p.on('disconnected', () => { presReady = false; setPresStatus(); try { p.reconnect(); } catch (_) {} });
   p.on('error', e => {
     if (e.type === 'peer-unavailable') {
+      if ((e.message || '').includes(HUB_ID)) { if (dirNoHubCb) dirNoHubCb(); return; }
       const m = /gbru-([A-HJ-NP-Z2-9]{6})/.exec(e.message || '');
       if (m && presWait.has(m[1])) [...presWait.get(m[1])].forEach(f => f());
       return;
@@ -1658,7 +1678,127 @@ $('bkRestore').onclick = () => {
     prof = normProf(o); saveProf(); location.reload();
   } catch (_) { frMsg('Kode cadangan tidak valid.', 'bkMsg'); }
 };
+
+// ====================== ROOM PUBLIK ======================
+// Tanpa server, daftar room publik dipegang oleh sebuah "hub": pemain mana pun yang sedang online dan
+// berhasil mengklaim ID tetap gbr-hub-v1. Host room publik mendaftar ke hub, semua pemain berlangganan daftarnya.
+// Kalau hub menghilang, pemain lain otomatis mengambil alih dan host mendaftar ulang dalam beberapa detik.
+const HUB_ID = 'gbr-hub-v1';
+let dirConn = null, dirBusy = false, dirNoHubCb = null, dirRetry = null, dirPong = 0;
+let hubPeer = null, hubOn = false, hubBcast = null, pubReg = null, pubList = [];
+const hubRooms = new Map(), hubSubs = new Set(), hubConns = new Set();
+const localC = { local: true, last: 0, room: null, send(m) { setTimeout(() => onDirMsg(JSON.parse(JSON.stringify(m))), 0); } };
+
+const hubListOut = () => [...hubRooms.values()].map(r => ({ code: r.code, name: r.name, mode: r.mode, n: r.n }));
+function hubNotify() {
+  clearTimeout(hubBcast);
+  hubBcast = setTimeout(() => { const l = hubListOut(); hubSubs.forEach(c => { try { c.send({ t: 'list', rooms: l }); } catch (_) {} }); }, 250);
+}
+function hubDrop(c) { hubSubs.delete(c); hubConns.delete(c); if (c.room) { hubRooms.delete(c.room); c.room = null; hubNotify(); } }
+function hubHandle(c, m) {
+  if (!m || typeof m !== 'object') return;
+  c.last = Date.now();
+  if (m.t === 'sub') { hubSubs.add(c); c.send({ t: 'list', rooms: hubListOut() }); }
+  else if (m.t === 'ping') c.send({ t: 'pong' });
+  else if (m.t === 'reg') {
+    const code = String(m.code || '').toUpperCase();
+    if (!/^[A-Z]{4}$/.test(code) || !MODES[m.mode]) return;
+    const ex = hubRooms.get(code); if (ex && ex.src !== c) return;                 // kode sudah dipakai koneksi lain
+    if (!ex && hubRooms.size >= 40) return;
+    if (c.room && c.room !== code) hubRooms.delete(c.room);                        // satu koneksi = satu room
+    c.room = code;
+    hubRooms.set(code, { code, name: cleanName(m.name) || 'Host', mode: m.mode, n: Math.max(1, Math.min(MAX_PLAYERS, m.n | 0)), ts: Date.now(), src: c });
+    hubNotify();
+  } else if (m.t === 'unreg') { if (c.room) { hubRooms.delete(c.room); c.room = null; hubNotify(); } }
+}
+function scheduleDir(ms) { clearTimeout(dirRetry); dirRetry = setTimeout(dirEnsure, ms); }
+function becomeHub() {
+  if (hubPeer || hubOn || typeof Peer === 'undefined') return;
+  const p = new Peer(HUB_ID, PEER_OPTS); hubPeer = p;
+  const lose = ms => { try { p.destroy(); } catch (_) {} if (hubPeer === p) hubPeer = null; hubOn = false; scheduleDir(ms); };
+  p.on('open', () => {
+    hubOn = true; dirConn = localC; hubSubs.add(localC);
+    localC.send({ t: 'list', rooms: hubListOut() }); pubSync(true);
+  });
+  p.on('connection', c => {
+    c.last = Date.now(); c.room = null; hubConns.add(c);
+    c.on('data', m => hubHandle(c, m)); c.on('close', () => hubDrop(c)); c.on('error', () => hubDrop(c));
+  });
+  p.on('disconnected', () => { try { p.reconnect(); } catch (_) {} });
+  p.on('error', e => { if (e.type === 'unavailable-id') lose(500 + Math.random() * 1500); else lose(5000); });
+}
+function dirLost(c) {
+  if (dirConn !== c) return;
+  dirConn = null; pubList = []; renderPub(); scheduleDir(1000 + Math.random() * 2000);
+}
+function dirEnsure() {
+  if (dirConn || dirBusy || hubPeer || !pres || !presReady) return;
+  dirBusy = true; let fin = false;
+  const c = pres.connect(HUB_ID, { reliable: true });
+  const to = setTimeout(() => { if (fin) return; fin = true; dirBusy = false; dirNoHubCb = null; try { c.close(); } catch (_) {} scheduleDir(3000); }, 8000);
+  dirNoHubCb = () => { if (fin) return; fin = true; clearTimeout(to); dirBusy = false; dirNoHubCb = null; becomeHub(); };
+  c.on('open', () => { if (fin) return; fin = true; clearTimeout(to); dirBusy = false; dirNoHubCb = null; dirConn = c; dirPong = Date.now(); c.send({ t: 'sub' }); pubSync(true); renderPub(); });
+  c.on('data', onDirMsg);
+  c.on('close', () => dirLost(c)); c.on('error', () => dirLost(c));
+}
+function onDirMsg(m) {
+  if (!m) return;
+  if (m.t === 'pong') dirPong = Date.now();
+  else if (m.t === 'list' && Array.isArray(m.rooms)) {
+    pubList = m.rooms.filter(r => r && /^[A-Z]{4}$/.test(r.code) && MODES[r.mode]).slice(0, 40)
+      .map(r => ({ code: r.code, name: cleanName(r.name) || 'Host', mode: r.mode, n: Math.max(1, Math.min(MAX_PLAYERS, r.n | 0)) }));
+    renderPub();
+  }
+}
+function dirSend(m) { if (hubOn) hubHandle(localC, m); else if (dirConn && dirConn.open) { try { dirConn.send(m); } catch (_) {} } }
+// host: daftarkan room publik selama masih di lobi dan belum penuh; cabut kalau tidak lagi
+function pubSync(force) {
+  const want = isHost && H.isPublic && H.phase === 'lobby' && peer && H.players.size < MAX_PLAYERS;
+  if (want) {
+    const info = { t: 'reg', code: peer.id.slice(PREFIX.length), name: (H.players.get('host') || {}).name, mode: H.mode, n: H.players.size };
+    const key = JSON.stringify(info);
+    if (force || key !== pubReg) { pubReg = key; dirEnsure(); dirSend(info); }
+  } else if (pubReg) { pubReg = null; dirSend({ t: 'unreg' }); }
+}
+setInterval(() => {
+  const now = Date.now();
+  if (hubOn) {
+    hubConns.forEach(c => { if (now - c.last > 35000) { try { c.close(); } catch (_) {} hubDrop(c); } });
+    hubRooms.forEach((r, k) => { if (now - r.ts > 35000) { hubRooms.delete(k); if (r.src && r.src.room === k) r.src.room = null; hubNotify(); } });
+  } else if (dirConn) {
+    try { dirConn.send({ t: 'ping' }); } catch (_) {}
+    if (now - dirPong > 28000) { const c = dirConn; try { c.close(); } catch (_) {} dirLost(c); }
+  }
+  pubSync(true);
+  if (!dirConn && !hubOn) dirEnsure();
+}, 10000);
+
+function renderPub() {
+  const box = $('pubList'); if (!box) return;
+  box.textContent = '';
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  $('pubCount').textContent = dirConn ? pubList.length + ' room' : '';
+  if (!dirConn) { box.append(mk('div', 'empty', typeof Peer === 'undefined' ? 'Pustaka PeerJS gagal dimuat.' : 'Mencari room publik…')); return; }
+  if (!pubList.length) { box.append(mk('div', 'empty', 'Belum ada room publik. Buat sendiri: menu ☰ → pilih mode → centang "Jadikan room publik".')); return; }
+  pubList.forEach(r => {
+    const row = mk('div', 'frRow'), nm = mk('div', 'nm');
+    nm.append(mk('b', '', r.name), mk('small', '', (MODES[r.mode].name) + ' · ' + r.n + '/' + MAX_PLAYERS + ' pemain'));
+    const g = mk('button', 'btn', 'Join'); g.onclick = () => joinPublic(r);
+    row.append(nm, g); box.append(row);
+  });
+}
+function joinPublic(r) {
+  if (typeof Peer === 'undefined') return frMsg('Pustaka PeerJS gagal dimuat. Cek internet.', 'pubMsg');
+  let nm = prof.name;
+  if (!nm) { nm = cleanName(prompt('Nama kamu untuk bermain:') || ''); if (!nm) return; prof.name = nm; saveProf(); $('name').value = nm; $('frName').value = nm; }
+  myName = nm; $('roomCode').value = r.code; joinErrTarget = 'pubMsg';
+  $('joinBtn').disabled = true; frMsg('Menghubungkan ke room ' + r.name + '…', 'pubMsg');
+  joinRoom(myName, r.code);
+}
+$('pubLobby').onchange = () => { H.isPublic = $('pubLobby').checked; hPush(); pubSync(true); };
+
 window.frReady = true;
+renderPub();
 startPresence();
 renderFriends();
 </script>
