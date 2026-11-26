@@ -15,7 +15,7 @@
   #home.active{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:16px}
   .homeTitle{margin:0;font-size:clamp(34px,9vw,60px);text-align:center;line-height:1.15}
   #menuBtn{position:fixed;top:12px;right:12px;width:48px;height:48px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:26px;line-height:1;z-index:60;display:none;color:var(--ink)}
-  #menuPanel{position:fixed;top:68px;right:12px;min-width:210px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:8px;z-index:60;display:none}
+  #menuPanel{position:fixed;top:124px;right:12px;min-width:210px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:8px;z-index:60;display:none}
   #menuPanel.open{display:block}
   #menuPanel .mhead{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:6px 10px}
   #menuPanel button{display:block;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:12px 10px;font-size:17px;color:var(--ink)}
@@ -123,6 +123,15 @@
 
 
   /* ===== Teman & profil ===== */
+  #quickBtn{position:fixed;top:68px;right:12px;width:48px;height:48px;border-radius:12px;border:1px solid var(--line);background:#fff;z-index:60;display:none;padding:0;align-items:center;justify-content:center}
+  #quickBtn svg{width:28px;height:28px;fill:#111;display:block;margin:auto}
+  #quickBadge{position:absolute;top:-6px;left:-6px;min-width:20px;height:20px;line-height:20px;padding:0 5px;border-radius:99px;background:#2ecc71;color:#fff;font-size:12px;font-weight:700;border:2px solid #fff;box-sizing:content-box}
+  #quickBadge.zero{background:#999}
+  #quickPanel{position:fixed;top:124px;right:12px;width:min(300px,calc(100vw - 24px));background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.2);padding:10px 12px;z-index:60;display:none;max-height:calc(100dvh - 140px);overflow:auto}
+  #quickPanel.open{display:block}
+  #quickPanel .mhead{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:2px 0 6px}
+  #quickPanel .frRow{padding:6px 0}
+  #quickPanel a{color:var(--accent);font-size:14px;text-decoration:underline;display:inline-block;margin-top:6px}
   #menuBtn.dot::after{content:"";position:absolute;top:6px;right:6px;width:12px;height:12px;border-radius:50%;background:#e74c3c;border:2px solid #fff}
   #menuPanel .sep{height:1px;background:var(--line);margin:6px 4px}
   #friends{max-width:520px}
@@ -217,6 +226,16 @@
   <h1 class="homeTitle">🎨 Gambar Bareng</h1>
 </div>
 <button id="menuBtn" aria-label="Menu" aria-expanded="false">☰</button>
+<button id="quickBtn" aria-label="Teman online" aria-expanded="false">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><path d="M2.3 19.5c0-3.8 3-6 6.7-6s6.7 2.2 6.7 6z"/><circle cx="17.2" cy="9" r="2.7"/><path d="M16.4 13.7c3.4-.3 6.2 1.6 6.2 5.8h-5.4c0-2.2-.3-4-.8-5.8z"/></svg>
+  <span id="quickBadge" class="zero">0</span>
+</button>
+<div id="quickPanel">
+  <div class="mhead">Teman online</div>
+  <div id="quickList"></div>
+  <div class="frMsg" id="qMsg"></div>
+  <a href="#" id="quickAll">Kelola teman &amp; profil →</a>
+</div>
 <div id="menuPanel" role="menu">
   <div class="mhead">Mode game</div>
   <button id="menuClassic" role="menuitem">🎮 Classic Mode</button>
@@ -410,13 +429,16 @@ const showScreen = id => {
   document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
   // tombol menu ☰ hanya tampil di beranda
   $('menuBtn').style.display = id === 'home' ? 'block' : 'none';
-  if (id !== 'home') setMenu(false);
+  $('quickBtn').style.display = id === 'home' ? 'flex' : 'none';
+  if (id !== 'home') { setMenu(false); setQuick(false); }
   if (id === 'join') joinErrTarget = 'joinErr';
   if (window.frReady) onScreen(id);
 };
 function setMenu(open) { $('menuPanel').classList.toggle('open', open); $('menuBtn').setAttribute('aria-expanded', open); }
-$('menuBtn').onclick = e => { e.stopPropagation(); setMenu(!$('menuPanel').classList.contains('open')); };
-document.addEventListener('click', e => { if (!$('menuPanel').contains(e.target)) setMenu(false); });
+$('menuBtn').onclick = e => { e.stopPropagation(); setQuick(false); setMenu(!$('menuPanel').classList.contains('open')); };
+function setQuick(open) { $('quickPanel').classList.toggle('open', open); $('quickBtn').setAttribute('aria-expanded', open); }
+$('quickBtn').onclick = e => { e.stopPropagation(); setMenu(false); const o = !$('quickPanel').classList.contains('open'); setQuick(o); if (o && window.frReady) { renderQuick(); refreshStatus(true); } };
+document.addEventListener('click', e => { if (!$('menuPanel').contains(e.target)) setMenu(false); if (!$('quickPanel').contains(e.target) && !$('quickBtn').contains(e.target)) setQuick(false); });
 let chosenMode = 'classic';
 function openJoin(mode) {
   chosenMode = mode;
@@ -1435,7 +1457,7 @@ function startPresence() {
   if (typeof Peer === 'undefined' || pres) return;
   const p = new Peer('gbru-' + prof.uid, PEER_OPTS); pres = p; presErr = '';
   const retry = ms => { presReady = false; setPresStatus(); try { p.destroy(); } catch (_) {} if (pres === p) pres = null; clearTimeout(presRetry); presRetry = setTimeout(startPresence, ms); };
-  p.on('open', () => { presReady = true; presErr = ''; setPresStatus(); });
+  p.on('open', () => { presReady = true; presErr = ''; setPresStatus(); if ($('home').classList.contains('active')) { refreshStatus(true); clearInterval(frTimer); frTimer = setInterval(() => refreshStatus(true), 20000); } });
   p.on('connection', c => c.on('data', m => onPresMsg(c, m)));
   p.on('disconnected', () => { presReady = false; setPresStatus(); try { p.reconnect(); } catch (_) {} });
   p.on('error', e => {
@@ -1502,9 +1524,9 @@ function presCall(uid, msg, timeout = 7000) {
   });
 }
 const frMsg = (t, id = 'frErr') => { $(id).textContent = t; };
-async function refreshStatus() {
-  if (!prof.friends.length) return;
-  prof.friends.forEach(f => { fstat[f.id] = { s: 'cek' }; });
+async function refreshStatus(silent) {
+  if (!prof.friends.length) { renderQuick(); return; }
+  if (silent !== true) prof.friends.forEach(f => { fstat[f.id] = { s: 'cek' }; });
   renderFriends();
   const todo = prof.friends.map(f => f.id);
   const worker = async () => {
@@ -1520,12 +1542,12 @@ async function refreshStatus() {
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
 }
-function joinFriend(f) {
+function joinFriend(f, tgt = 'frErr') {
   const st = fstat[f.id]; if (!st || st.s !== 'room') return;
-  if (!prof.name) return frMsg('Isi namamu dulu di bagian Profil.');
-  if (typeof Peer === 'undefined') return frMsg('Pustaka PeerJS gagal dimuat. Cek internet.');
-  myName = prof.name; $('roomCode').value = st.code; joinErrTarget = 'frErr';
-  $('joinBtn').disabled = true; frMsg('Menghubungkan ke room ' + f.name + '…');
+  if (!prof.name) return frMsg('Isi namamu dulu di Teman & Profil.', tgt);
+  if (typeof Peer === 'undefined') return frMsg('Pustaka PeerJS gagal dimuat. Cek internet.', tgt);
+  myName = prof.name; $('roomCode').value = st.code; joinErrTarget = tgt;
+  $('joinBtn').disabled = true; frMsg('Menghubungkan ke room ' + f.name + '…', tgt);
   joinRoom(myName, st.code);
 }
 async function sendReq() {
@@ -1558,6 +1580,7 @@ function renderFriends() {
   const n = prof.incoming.length;
   $('menuBtn').classList.toggle('dot', n > 0);
   $('reqBadge').textContent = n ? '(' + n + ')' : '';
+  renderQuick();
   if (!$('friends').classList.contains('active')) return;
   $('frCount').textContent = prof.friends.length;
   const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
@@ -1585,13 +1608,31 @@ function renderFriends() {
     row.append(rm); fl.append(row);
   });
 }
+function renderQuick() {
+  const on = prof.friends.filter(f => fstat[f.id] && (fstat[f.id].s === 'on' || fstat[f.id].s === 'room'));
+  $('quickBadge').textContent = on.length; $('quickBadge').classList.toggle('zero', !on.length);
+  $('quickBtn').setAttribute('aria-label', on.length + ' teman online');
+  if (!$('quickPanel').classList.contains('open')) return;
+  const l = $('quickList'); l.textContent = '';
+  const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  if (!prof.friends.length) l.append(mk('p', 'muted', 'Belum ada teman.'));
+  else if (!on.length) l.append(mk('p', 'muted', fstat[prof.friends[0].id] && fstat[prof.friends[0].id].s === 'cek' ? 'Memeriksa…' : 'Tidak ada teman yang online.'));
+  on.forEach(f => {
+    const st = fstat[f.id], row = mk('div', 'frRow'), nm = mk('div', 'nm');
+    nm.append(mk('b', '', f.name), mk('small', '', st.s === 'room' ? 'Room · ' + ((MODES[st.mode] || {}).name || 'Classic') + ' · ' + st.n + '/' + MAX_PLAYERS : 'Online'));
+    row.append(mk('span', 'dotS ' + (st.s === 'room' ? 'room' : 'on')), nm);
+    if (st.s === 'room') { const g = mk('button', 'btn', 'Gabung'); g.onclick = () => joinFriend(f, 'qMsg'); row.append(g); }
+    l.append(row);
+  });
+}
+$('quickAll').onclick = e => { e.preventDefault(); setQuick(false); showScreen('friends'); };
 let frTimer = null;
 function onScreen(id) {
   clearInterval(frTimer);
   if (id === 'friends') {
     $('frName').value = prof.name; $('myUid').textContent = prof.uid; frMsg(''); frMsg('', 'bkMsg'); setPresStatus(); renderFriends();
     refreshStatus(); frTimer = setInterval(refreshStatus, 20000);
-  } else if (id === 'home') renderFriends();
+  } else if (id === 'home') { renderFriends(); refreshStatus(true); frTimer = setInterval(() => refreshStatus(true), 20000); }
 }
 $('menuFriends').onclick = () => showScreen('friends');
 $('frBack').onclick = () => showScreen('home');
