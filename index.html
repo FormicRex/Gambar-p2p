@@ -86,6 +86,11 @@
   #drawNote:empty{display:none}
   body:has(#draw.active) #chatBtn{width:48px;height:48px;right:8px;bottom:max(10px,env(safe-area-inset-bottom))}
   #wheelCv{width:200px;height:200px;touch-action:none;border-radius:50%;cursor:crosshair}
+  /* pipet warna: lingkaran pratinjau warna di dekat jari */
+  #pickLoupe{position:absolute;display:none;width:56px;height:56px;margin:-82px 0 0 -28px;border-radius:50%;border:4px solid #fff;box-shadow:0 0 0 2px #000,0 3px 10px rgba(0,0,0,.4);pointer-events:none;z-index:6}
+  #pickLoupe::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 0 0 1.5px #000}
+  #cvWrap.picking{cursor:crosshair}
+  @media (max-width:430px){.toolbar{gap:2px}.toolbar .tb{font-size:10px}}
   #chatBtn{position:fixed;right:14px;bottom:14px;width:54px;height:54px;border-radius:50%;border:0;background:var(--ink);color:#fff;font-size:24px;z-index:40;box-shadow:0 4px 14px rgba(0,0,0,.3)}
   #chatBadge{position:absolute;top:-4px;right:-4px;background:#e74c3c;color:#fff;border-radius:99px;font-size:12px;min-width:20px;height:20px;line-height:20px;padding:0 5px}
   #chatPanel{display:none;position:fixed;left:0;right:0;bottom:0;max-width:760px;margin:0 auto;height:55vh;background:#fff;border:1px solid var(--line);border-radius:16px 16px 0 0;z-index:45;flex-direction:column;box-shadow:0 -6px 20px rgba(0,0,0,.25)}
@@ -273,8 +278,6 @@
     <div class="err" id="joinErr"></div>
     <button class="btn" id="joinBtn">Masuk</button>
   </div>
-  <p class="muted" style="font-size:13px">Yang membuat room adalah host: tab-nya harus tetap terbuka selama game berlangsung.</p>
-  <p class="muted" style="font-size:13px">Mode ini dipakai saat kamu <b>membuat room baru</b> (kode dikosongkan). Kalau kamu memasukkan kode room teman, mode mengikuti pilihan host.</p>
 </div>
 
 <div id="friends" class="screen">
@@ -355,6 +358,8 @@
     <div id="cvWrap"><canvas id="cv" width="640" height="480"></canvas>
       <!-- penanda pensil: posisi sentuhan pasangan (Mode Duo) -->
       <div id="remoteCur"><span class="dot" id="rcDot"></span><span class="pen">✏️</span><span class="nm" id="rcName"></span></div>
+      <!-- pratinjau warna saat memakai pipet -->
+      <div id="pickLoupe"></div>
     </div>
   </div>
   <!-- bawah: ukuran, alat, tombol Selesai -->
@@ -369,6 +374,7 @@
       <button class="tb sel" id="penBtn"><i>🖌️</i>Kuas</button>
       <button class="tb" id="eraseBtn"><i>🧽</i>Hapus</button>
       <button class="tb" id="fillBtn"><i>🪣</i>Ember cat</button>
+      <button class="tb" id="pickBtn"><i>💧</i>Pipet</button>
       <button class="tb" id="colorBtn"><i><span id="curSw"></span></i>Warna</button>
       <button class="tb" id="wheelBtn"><i>🎨</i>Roda warna</button>
       <button class="tb" id="panBtn"><i>✋</i>Geser</button>
@@ -956,7 +962,7 @@ const swatches = [];
 // pilih warna (dari palet atau roda warna); ember cat tetap aktif, hapus/geser kembali ke pensil
 function setColor(c, fromWheel) {
   color = c;
-  if (tool === 'erase' || tool === 'pan') tool = 'pen';
+  if (tool === 'erase' || tool === 'pan' || tool === 'pick') tool = 'pen';
   sync();
   swatches.forEach(s => s.el.classList.toggle('sel', !fromWheel && s.c === c));
   $('curSw').style.background = c;
@@ -968,9 +974,10 @@ COLORS.forEach((c, i) => {
   swatches.push({ el: b, c });
   $('colors').appendChild(b);
 });
-function sync() { ['pen', 'fill', 'erase', 'pan'].forEach(t => $(t + 'Btn').classList.toggle('sel', tool === t)); }
+function sync() { ['pen', 'fill', 'pick', 'erase', 'pan'].forEach(t => $(t + 'Btn').classList.toggle('sel', tool === t)); $('cvWrap').classList.toggle('picking', tool === 'pick'); }
 $('penBtn').onclick = () => { tool = 'pen'; sync(); };
 $('fillBtn').onclick = () => { tool = 'fill'; sync(); };
+$('pickBtn').onclick = () => { tool = 'pick'; sync(); closePops(); };
 $('eraseBtn').onclick = () => { tool = 'erase'; sync(); };
 $('panBtn').onclick = () => { tool = 'pan'; sync(); };
 function blank() { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width, cv.height); }
@@ -1216,6 +1223,19 @@ function floodFill(sx, sy, hex) {
 // ---------- Sentuhan: 1 jari = gambar/ember/geser, 2 jari = zoom + geser ----------
 const ptrs = new Map();
 let pinch = null, panning = false, panLast = null, fillCand = null;
+// ---------- Pipet warna: ketuk / seret di kanvas untuk mengambil warnanya ----------
+let pickCand = null, pickHex = null;
+const loupe = $('pickLoupe');
+function pickAt(e) {
+  const p = pos(e);
+  const x = Math.min(cv.width - 1, Math.max(0, Math.floor(p.x))), y = Math.min(cv.height - 1, Math.max(0, Math.floor(p.y)));
+  const d = ctx.getImageData(x, y, 1, 1).data, a = d[3] / 255;
+  pickHex = toHex([d[0], d[1], d[2]].map(v => Math.round(v * a + 255 * (1 - a))));   // piksel transparan dianggap putih
+  const r = wrap.getBoundingClientRect(), lx = e.clientX - r.left, ly = e.clientY - r.top;
+  loupe.style.display = 'block'; loupe.style.background = pickHex;
+  loupe.style.left = lx + 'px'; loupe.style.top = (ly < 100 ? ly + 140 : ly) + 'px';   // dekat tepi atas: tampil di bawah jari
+}
+function pickCancel() { pickCand = null; pickHex = null; loupe.style.display = 'none'; }
 wrap.addEventListener('pointerdown', e => {
   wrap.setPointerCapture(e.pointerId);
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1224,12 +1244,13 @@ wrap.addEventListener('pointerdown', e => {
       if (isDuo()) duoCancelStroke();
       else { drawing = false; if (undoStack.length) ctx.putImageData(undoStack.pop(), 0, 0); redoStack = redoBackup; }
     }
-    fillCand = null; panning = false;
+    fillCand = null; panning = false; pickCancel();
     const [a, b] = [...ptrs.values()];
     pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
     return;
   }
   if (tool === 'pan') { panning = true; panLast = { x: e.clientX, y: e.clientY }; return; }
+  if (tool === 'pick') { pickCand = { id: e.pointerId }; pickAt(e); return; }
   if (locked()) return;
   if (tool === 'fill') { fillCand = { id: e.pointerId, x: e.clientX, y: e.clientY, p: pos(e) }; return; }
   if (isDuo()) return duoBegin(e);
@@ -1249,17 +1270,21 @@ wrap.addEventListener('pointermove', e => {
     return;
   }
   if (panning) { tx += e.clientX - panLast.x; ty += e.clientY - panLast.y; panLast = { x: e.clientX, y: e.clientY }; applyView(); return; }
+  if (pickCand && pickCand.id === e.pointerId) { pickAt(e); return; }
   if (fillCand && Math.hypot(e.clientX - fillCand.x, e.clientY - fillCand.y) > 10) fillCand = null;
   if (!drawing) return;
   if (isDuo()) { if (duoCur) duoMove(e); return; }
   const p = pos(e); stroke(last, p); last = p;
 });
 function endPtr(e) {
-  const cand = fillCand;
+  const cand = fillCand, pc = pickCand, ph = pickHex;
+  pickCancel();
   if (drawing && isDuo()) duoEndStroke();
   ptrs.delete(e.pointerId);
   if (ptrs.size < 2) pinch = null;
   drawing = false; panning = false; fillCand = null;
+  // pipet: warna terakhir yang disentuh dipakai, lalu kembali ke kuas
+  if (e.type === 'pointerup' && pc && pc.id === e.pointerId && ph) { setColor(ph, false); tool = 'pen'; sync(); return; }
   // ember cat dijalankan saat jari diangkat (ketukan), supaya tidak terisi tak sengaja saat cubit/geser
   if (e.type === 'pointerup' && cand && cand.id === e.pointerId && ptrs.size === 0 && !locked()) {
     if (isDuo()) duoFill(cand.p);
